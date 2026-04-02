@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stream - Netflix Style Player with Resume</title>
+<title>Stream - Netflix Style Player</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <style>
 * {
@@ -125,7 +125,7 @@ video {
   bottom: 120px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(12px);
   border-radius: 16px;
   padding: 16px 24px;
@@ -380,7 +380,7 @@ video {
   backdrop-filter: blur(12px);
   border-radius: 12px;
   padding: 12px 0;
-  min-width: 220px;
+  min-width: 240px;
   z-index: 51;
   display: none;
   border: 1px solid rgba(255,255,255,0.1);
@@ -408,6 +408,11 @@ video {
 
 .menu-item .value {
   color: #e50914;
+}
+
+.menu-item .current {
+  color: #e50914;
+  font-size: 12px;
 }
 
 .menu-divider {
@@ -452,7 +457,7 @@ video {
   .play-btn { width: 36px; height: 36px; }
   .skip-btn { width: 32px; height: 32px; }
   .subtitle-text { font-size: 14px; }
-  .dropdown-menu { right: 20px; bottom: 70px; }
+  .dropdown-menu { right: 20px; bottom: 70px; min-width: 200px; }
   .resume-overlay { width: 90%; min-width: auto; }
 }
 
@@ -564,7 +569,7 @@ video {
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-        
+        <span>Menu</span>
       </button>
       <button class="ctrl-btn" id="pip-btn" title="Picture in Picture">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -596,6 +601,15 @@ video {
     <div class="menu-item" data-speed="2">2x</div>
   </div>
   <div class="menu-divider"></div>
+  <div class="menu-item" id="quality-menu-item">
+    <span>🎬 Video Quality</span>
+    <span class="value" id="current-quality-label">Auto</span>
+  </div>
+  <div id="quality-submenu" class="submenu">
+    <div class="menu-item" data-quality="auto">Auto (Adaptive)</div>
+    <div id="quality-list"></div>
+  </div>
+  <div class="menu-divider"></div>
   <div class="menu-item" id="subtitle-menu-item">
     <span>📺 Subtitles</span>
     <span class="value" id="subtitle-status">Off</span>
@@ -625,32 +639,23 @@ let currentLanguage = 'en';
 let controlsTimeout = null;
 let saveInterval = null;
 let currentResumeTime = null;
+let hlsInstance = null;
+let availableLevels = [];
+let currentQuality = 'auto';
 
 // ========== HELPER FUNCTIONS FOR CLEANING SUBTITLE TEXT ==========
 function stripHtmlTags(text) {
   if (!text) return '';
-  // Remove HTML tags like <font>, <i>, <b>, </font>, etc.
   return text.replace(/<[^>]*>/g, '');
 }
 
 function decodeHtmlEntities(text) {
   if (!text) return '';
   const entities = {
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&nbsp;': ' ',
-    '&copy;': '©',
-    '&reg;': '®',
-    '&hellip;': '…',
-    '&mdash;': '—',
-    '&ndash;': '–',
-    '&lsquo;': "'",
-    '&rsquo;': "'",
-    '&ldquo;': '"',
-    '&rdquo;': '"'
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'",
+    '&nbsp;': ' ', '&copy;': '©', '&reg;': '®', '&hellip;': '…',
+    '&mdash;': '—', '&ndash;': '–', '&lsquo;': "'", '&rsquo;': "'",
+    '&ldquo;': '"', '&rdquo;': '"'
   };
   return text.replace(/&[#\w]+;/g, function(match) {
     return entities[match] || match;
@@ -659,13 +664,89 @@ function decodeHtmlEntities(text) {
 
 function cleanSubtitleText(text) {
   if (!text) return '';
-  // First decode HTML entities
   let cleaned = decodeHtmlEntities(text);
-  // Then strip any remaining HTML tags
   cleaned = stripHtmlTags(cleaned);
-  // Remove extra whitespace
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   return cleaned;
+}
+
+// ========== QUALITY MANAGEMENT (AUTO BY DEFAULT) ==========
+function updateQualityMenu() {
+  if (!hlsInstance || !availableLevels.length) return;
+  
+  const qualityList = document.getElementById('quality-list');
+  if (!qualityList) return;
+  
+  let html = '';
+  for (let i = 0; i < availableLevels.length; i++) {
+    const level = availableLevels[i];
+    let height = level.height || 'Unknown';
+    let bitrate = level.bitrate ? (level.bitrate / 1000).toFixed(0) + ' kbps' : '';
+    let label = height + 'p';
+    if (bitrate) label += ' (' + bitrate + ')';
+    
+    let isSelected = false;
+    if (currentQuality === 'auto') {
+      isSelected = (hlsInstance.currentLevel === i);
+    } else {
+      isSelected = (currentQuality == i);
+    }
+    
+    html += `<div class="menu-item" data-quality-index="${i}">
+      <span>${label}</span>
+      ${isSelected ? '<span class="current">✓</span>' : ''}
+    </div>`;
+  }
+  qualityList.innerHTML = html;
+  
+  const qualityItems = qualityList.querySelectorAll('[data-quality-index]');
+  for (let i = 0; i < qualityItems.length; i++) {
+    qualityItems[i].addEventListener('click', function() {
+      const index = parseInt(this.getAttribute('data-quality-index'));
+      setQuality(index);
+      document.getElementById('quality-submenu').classList.remove('show');
+      document.getElementById('settings-menu').classList.remove('show');
+    });
+  }
+}
+
+function setQuality(levelIndex) {
+  if (!hlsInstance) return;
+  
+  if (levelIndex === 'auto') {
+    currentQuality = 'auto';
+    hlsInstance.currentLevel = -1;
+    document.getElementById('current-quality-label').innerHTML = 'Auto';
+  } else {
+    currentQuality = levelIndex;
+    hlsInstance.currentLevel = levelIndex;
+    const level = availableLevels[levelIndex];
+    const height = level.height || 'Unknown';
+    document.getElementById('current-quality-label').innerHTML = height + 'p';
+  }
+  
+  updateQualityMenu();
+}
+
+function setupHlsQualityMonitoring() {
+  if (!hlsInstance) return;
+  
+  hlsInstance.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+    if (currentQuality === 'auto') {
+      const level = availableLevels[data.level];
+      if (level) {
+        const height = level.height || 'Unknown';
+        document.getElementById('current-quality-label').innerHTML = 'Auto (' + height + 'p)';
+      }
+    }
+    updateQualityMenu();
+  });
+  
+  hlsInstance.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+    availableLevels = hlsInstance.levels;
+    updateQualityMenu();
+    setQuality('auto');
+  });
 }
 
 // ========== RESUME FUNCTIONALITY ==========
@@ -726,7 +807,7 @@ function showResumeOverlay(savedTime) {
   }, 10000);
 }
 
-// ========== UPDATED SRT PARSER ==========
+// ========== SRT PARSER ==========
 function parseTime(timeStr) {
   let match = timeStr.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
   if (!match) {
@@ -999,6 +1080,7 @@ function setupControls() {
   fullscreenBtn.addEventListener('click', toggleFullscreen);
   pipBtn.addEventListener('click', togglePIP);
   
+  // Settings menu
   settingsBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     settingsMenu.classList.toggle('show');
@@ -1009,9 +1091,11 @@ function setupControls() {
       settingsMenu.classList.remove('show');
       document.getElementById('speed-submenu').classList.remove('show');
       document.getElementById('subtitle-submenu').classList.remove('show');
+      document.getElementById('quality-submenu').classList.remove('show');
     }
   });
   
+  // Speed submenu
   document.getElementById('speed-menu-item').addEventListener('click', function(e) {
     e.stopPropagation();
     var sub = document.getElementById('speed-submenu');
@@ -1028,6 +1112,24 @@ function setupControls() {
     });
   }
   
+  // Quality submenu
+  document.getElementById('quality-menu-item').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var sub = document.getElementById('quality-submenu');
+    sub.classList.toggle('show');
+    updateQualityMenu();
+  });
+  
+  const autoQualityItem = document.querySelector('[data-quality="auto"]');
+  if (autoQualityItem) {
+    autoQualityItem.addEventListener('click', function() {
+      setQuality('auto');
+      settingsMenu.classList.remove('show');
+      document.getElementById('quality-submenu').classList.remove('show');
+    });
+  }
+  
+  // Subtitle submenu
   document.getElementById('subtitle-menu-item').addEventListener('click', function(e) {
     e.stopPropagation();
     var sub = document.getElementById('subtitle-submenu');
@@ -1064,6 +1166,7 @@ function setupControls() {
     settingsMenu.classList.remove('show');
   });
   
+  // Resume buttons
   document.getElementById('resume-yes').addEventListener('click', function() {
     if (currentResumeTime) {
       videoElement.currentTime = currentResumeTime;
@@ -1133,10 +1236,24 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
   var src = '/api?url=' + encodeURIComponent(playlistUrl);
   
   if (Hls.isSupported()) {
-    var hls = new Hls({ enableWorker: true });
-    hls.loadSource(src);
-    hls.attachMedia(videoElement);
-    hls.on(Hls.Events.MANIFEST_PARSED, async function() {
+    hlsInstance = new Hls({ 
+      enableWorker: true,
+      capLevelToPlayerSize: true,
+      maxLoadingDelay: 4,
+      minAutoBitrate: 0,
+      autoStartLoad: true,
+      startLevel: -1
+    });
+    
+    hlsInstance.loadSource(src);
+    hlsInstance.attachMedia(videoElement);
+    
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, async function(event, data) {
+      availableLevels = hlsInstance.levels;
+      updateQualityMenu();
+      setupHlsQualityMonitoring();
+      setQuality('auto');
+      
       stopMessageRotation();
       document.getElementById('loader').style.display = 'none';
       document.getElementById('player').style.display = 'block';
@@ -1152,8 +1269,13 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
       
       videoElement.play().catch(function() {});
     });
-    hls.on(Hls.Events.ERROR, function(_, data) {
-      if (data.fatal) showError('Playback error');
+    
+    hlsInstance.on(Hls.Events.ERROR, function(_, data) {
+      if (data.fatal) {
+        console.error('HLS Error:', data);
+        if (hlsInstance) hlsInstance.destroy();
+        showError('Playback error');
+      }
     });
   } else {
     showError('HLS not supported');
@@ -1163,6 +1285,9 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
 window.addEventListener('beforeunload', function() {
   if (saveInterval) clearInterval(saveInterval);
   saveProgress();
+  if (hlsInstance) {
+    hlsInstance.destroy();
+  }
 });
 
 // ========== INIT ==========
@@ -1187,6 +1312,5 @@ if (!id) {
     .catch(function(err) { showError(err.message); });
 }
 </script>
-
 </body>
 </html>
