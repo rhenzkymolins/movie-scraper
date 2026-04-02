@@ -2,53 +2,308 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stream</title>
+<meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no">
+<title>Stream · Wyzie Subtitles</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+<!-- wyzie subtitle engine -->
+<script src="https://cdn.jsdelivr.net/npm/wyzie@1.0.6/dist/wyzie.min.js"></script>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { width: 100%; height: 100%; background: #000; font-family: system-ui, sans-serif; color: #fff; overflow: hidden; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  font-family: system-ui, 'Segoe UI', -apple-system, sans-serif;
+  color: #fff;
+  overflow: hidden;
+}
+
+/* LOADER */
 #loader {
-  position: fixed; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 28px; background: #000;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: #000;
+  z-index: 20;
 }
+
 #loader-bg {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center;
-  transition: opacity .6s ease; opacity: 0;
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 0.6s ease;
+  opacity: 0;
 }
+
 .spinner {
-  position: relative; z-index: 1;
-  width: 72px; height: 72px;
-  border: 5px solid rgba(255,255,255,.15);
-  border-top-color: #fff; border-radius: 50%;
-  animation: spin .9s linear infinite;
+  position: relative;
+  z-index: 1;
+  width: 72px;
+  height: 72px;
+  border: 5px solid rgba(255,255,255,0.15);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
 }
+
 @keyframes spin { to { transform: rotate(360deg); } }
-#loader-text { position: relative; z-index: 1; font-size: .95rem; color: rgba(255,255,255,.6); letter-spacing: .04em; text-shadow: 0 1px 4px #000; }
 
-#player { position: fixed; inset: 0; display: none; background: #000; }
-video { width: 100%; height: 100%; display: block; }
-
-#usage {
-  position: fixed; inset: 0; display: none; flex-direction: column;
-  align-items: center; justify-content: center; text-align: center;
-  background: #000; gap: 10px;
+#loader-text {
+  position: relative;
+  z-index: 1;
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 4px #000;
 }
-#usage p { font-size: 1.05rem; color: rgba(255,255,255,.65); line-height: 2; }
 
-#err {
-  position: fixed; inset: 0; display: none; flex-direction: column;
-  align-items: center; justify-content: center; text-align: center; background: #000;
+/* PLAYER */
+#player {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: #000;
+  z-index: 5;
 }
-#err-title { font-size: 2.4rem; font-weight: 700; color: #fff; margin-bottom: 18px; }
-#err-link { font-size: 1.1rem; color: #60a5fa; text-decoration: underline; cursor: pointer; }
-#err-link:hover { color: #93c5fd; }
+
+video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+/* SUBTITLE PANEL */
+#subtitle-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 30;
+  background: rgba(20, 20, 30, 0.9);
+  backdrop-filter: blur(12px);
+  border-radius: 40px;
+  padding: 8px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.2);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.panel-btn {
+  background: rgba(255,255,255,0.12);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 32px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-btn:hover {
+  background: rgba(255,255,255,0.25);
+  transform: scale(0.96);
+}
+
+#subtitle-settings-toggle {
+  background: #3b82f6;
+}
+
+#subtitle-settings-toggle:hover {
+  background: #2563eb;
+}
+
+/* LANGUAGE SELECTOR */
+#lang-selector {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 32px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+#lang-selector option {
+  background: #1e1e2a;
+}
+
+/* SETTINGS MODAL */
+#settings-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(12px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.settings-card {
+  background: #1e1e2a;
+  border-radius: 32px;
+  width: 90%;
+  max-width: 480px;
+  padding: 28px 24px 32px;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 25px 40px rgba(0,0,0,0.5);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.settings-card h3 {
+  font-size: 1.7rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.settings-card p {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-bottom: 24px;
+  border-left: 3px solid #3b82f6;
+  padding-left: 12px;
+}
+
+.control-group {
+  margin-bottom: 22px;
+}
+
+.control-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #ddd;
+}
+
+.control-group input, .control-group select {
+  width: 100%;
+  background: #2a2a36;
+  border: 1px solid #3a3a48;
+  padding: 10px 14px;
+  border-radius: 24px;
+  color: white;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.control-group input:focus, .control-group select:focus {
+  border-color: #3b82f6;
+}
+
+.color-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.color-row input[type="color"] {
+  width: 55px;
+  height: 44px;
+  padding: 4px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.range-row input {
+  flex: 1;
+}
+
+.close-settings {
+  background: #3b82f6;
+  border: none;
+  width: 100%;
+  padding: 12px;
+  border-radius: 40px;
+  font-weight: bold;
+  font-size: 1rem;
+  color: white;
+  margin-top: 16px;
+  cursor: pointer;
+}
+
+.close-settings:hover {
+  background: #2563eb;
+}
+
+/* USAGE & ERROR */
+#usage, #err {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #000;
+  z-index: 15;
+}
+
+#usage p {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.65);
+  line-height: 2;
+}
+
+#err-title {
+  font-size: 2.4rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+#err-link {
+  font-size: 1.1rem;
+  color: #60a5fa;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 #err-detail {
-  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
-  font-size: .78rem; color: rgba(255,255,255,.35); white-space: nowrap;
-  max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* wyzie subtitle container custom */
+.wyzie-subtitle {
+  transition: all 0.15s ease;
+  text-align: center;
 }
 </style>
 </head>
@@ -75,98 +330,523 @@ video { width: 100%; height: 100%; display: block; }
 </div>
 
 <div id="player">
-  <video id="v" controls autoplay playsinline></video>
+  <video id="v" controls autoplay playsinline crossorigin="anonymous"></video>
+</div>
+
+<!-- Subtitle panel -->
+<div id="subtitle-panel" style="display: none;">
+  <select id="lang-selector">
+    <option value="en">🇬🇧 English</option>
+    <option value="es">🇪🇸 Español</option>
+    <option value="fr">🇫🇷 Français</option>
+    <option value="de">🇩🇪 Deutsch</option>
+    <option value="it">🇮🇹 Italiano</option>
+    <option value="pt">🇵🇹 Português</option>
+    <option value="ru">🇷🇺 Русский</option>
+    <option value="ja">🇯🇵 日本語</option>
+    <option value="ko">🇰🇷 한국어</option>
+    <option value="zh">🇨🇳 中文</option>
+    <option value="ar">🇸🇦 العربية</option>
+    <option value="hi">🇮🇳 हिन्दी</option>
+  </select>
+  <button class="panel-btn" id="subtitle-cc-btn">📺 CC On</button>
+  <button class="panel-btn" id="subtitle-settings-toggle">⚙️ Style</button>
+</div>
+
+<!-- Style modal -->
+<div id="settings-modal">
+  <div class="settings-card">
+    <h3>🎨 Subtitle Style</h3>
+    <p>Live preview — changes apply instantly</p>
+    
+    <div class="control-group">
+      <label>📝 Font Size</label>
+      <div class="range-row">
+        <input type="range" id="sub-font-size" min="12" max="48" step="1" value="22">
+        <span id="font-size-val" style="min-width: 45px;">22px</span>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>🖋️ Font Family</label>
+      <select id="sub-font-family">
+        <option value="system-ui, -apple-system, sans-serif">System Default</option>
+        <option value="'Segoe UI', Roboto, sans-serif">Segoe / Roboto</option>
+        <option value="'Inter', sans-serif">Inter</option>
+        <option value="'Montserrat', sans-serif">Montserrat</option>
+        <option value="'Open Sans', sans-serif">Open Sans</option>
+        <option value="'Courier New', monospace">Monospace</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label>🎨 Text Color</label>
+      <div class="color-row">
+        <input type="color" id="sub-text-color" value="#FFFFFF">
+        <span style="font-size:0.8rem;">White / custom</span>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>📦 Background Color</label>
+      <div class="color-row">
+        <input type="color" id="sub-bg-color" value="#000000">
+        <span style="font-size:0.8rem;">Background color</span>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>🔲 Background Opacity</label>
+      <div class="range-row">
+        <input type="range" id="sub-bg-opacity" min="0" max="1" step="0.05" value="0.75">
+        <span id="opacity-val" style="min-width: 45px;">0.75</span>
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>📏 Text Outline / Shadow</label>
+      <select id="sub-shadow">
+        <option value="soft">Soft shadow (default)</option>
+        <option value="thick">Thick outline (high contrast)</option>
+        <option value="none">No shadow</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label>📐 Subtitle Position (Bottom offset)</label>
+      <div class="range-row">
+        <input type="range" id="sub-bottom-offset" min="0" max="80" step="2" value="12">
+        <span id="offset-val" style="min-width: 45px;">12px</span>
+      </div>
+    </div>
+    
+    <button class="close-settings" id="close-settings-btn">Apply & Close</button>
+  </div>
 </div>
 
 <script>
-var TMDB_KEY = '3a73619bbb8fc6d47742d1b5b2b707b5';
+// ========== WYZIE API KEY ==========
+const WYZIE_API_KEY = "wyzie-17cb79da72500da5414937d15bbd0c7c";
+const TMDB_KEY = '10bbe67e0f7cbf6673834b2412e2e392';
 
-var MESSAGES = [
-  'Loading stream...', 'Contacting the mothership...', 'Bribing the servers...',
-  'Untangling the cables...', 'Asking nicely...', 'Decoding the matrix...',
-  'Warming up the hamsters...', 'Negotiating with the cloud...', 'Almost there...',
-  'Convincing pixels to move...', 'Poking the API...', 'Summoning bandwidth...',
-  'Greasing the pipes...', 'Waking up the interns...', 'Stealing the stream (legally)...'
-];
-var msgEl = document.getElementById('loader-text');
-var msgIdx = 0;
-var msgTimer = setInterval(function() {
-  msgIdx = (msgIdx + 1) % MESSAGES.length;
-  msgEl.textContent = MESSAGES[msgIdx];
-}, 2200);
+let wyzieInstance = null;
+let currentVideoElement = null;
+let subtitlesEnabled = true;
+let currentSubtitleUrl = null;
+let currentMediaId = null;
+let currentIsTv = false;
+let currentSeason = null;
+let currentEpisode = null;
 
-var p = new URLSearchParams(location.search);
-var id = p.get('id'), s = p.get('s'), e = p.get('e');
+// DOM elements
+const loaderDiv = document.getElementById('loader');
+const playerDiv = document.getElementById('player');
+const usageDiv = document.getElementById('usage');
+const errDiv = document.getElementById('err');
+const videoEl = document.getElementById('v');
+const subtitlePanel = document.getElementById('subtitle-panel');
+const ccToggleBtn = document.getElementById('subtitle-cc-btn');
+const settingsModal = document.getElementById('settings-modal');
+const settingsToggle = document.getElementById('subtitle-settings-toggle');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const langSelector = document.getElementById('lang-selector');
 
-function showPlayer() {
-  clearInterval(msgTimer);
-  document.getElementById('loader').style.display = 'none';
-  document.getElementById('player').style.display = 'block';
+// Style inputs
+const fontSizeRange = document.getElementById('sub-font-size');
+const fontSizeVal = document.getElementById('font-size-val');
+const fontFamilySelect = document.getElementById('sub-font-family');
+const textColorPicker = document.getElementById('sub-text-color');
+const bgColorPicker = document.getElementById('sub-bg-color');
+const bgOpacityRange = document.getElementById('sub-bg-opacity');
+const opacityValSpan = document.getElementById('opacity-val');
+const shadowSelect = document.getElementById('sub-shadow');
+const bottomOffsetRange = document.getElementById('sub-bottom-offset');
+const offsetValSpan = document.getElementById('offset-val');
+
+// ========== SUBTITLE STYLE APPLY ==========
+function applySubtitleStyles() {
+  if (!wyzieInstance) return;
+  
+  const fontSize = fontSizeRange.value + 'px';
+  const fontFamily = fontFamilySelect.value;
+  const textColor = textColorPicker.value;
+  const rawBgColor = bgColorPicker.value;
+  const bgOpacity = parseFloat(bgOpacityRange.value);
+  const bottomOffset = bottomOffsetRange.value + 'px';
+  
+  // Convert hex to rgba
+  let bgRgba = rawBgColor;
+  if (rawBgColor.startsWith('#')) {
+    const r = parseInt(rawBgColor.slice(1,3), 16);
+    const g = parseInt(rawBgColor.slice(3,5), 16);
+    const b = parseInt(rawBgColor.slice(5,7), 16);
+    bgRgba = `rgba(${r}, ${g}, ${b}, ${bgOpacity})`;
+  } else {
+    bgRgba = `rgba(0,0,0,${bgOpacity})`;
+  }
+  
+  // Text shadow based on selection
+  let textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
+  if (shadowSelect.value === 'thick') {
+    textShadow = '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+  } else if (shadowSelect.value === 'none') {
+    textShadow = 'none';
+  }
+  
+  wyzieInstance.setStyle({
+    fontSize: fontSize,
+    fontFamily: fontFamily,
+    color: textColor,
+    backgroundColor: bgRgba,
+    textShadow: textShadow,
+    padding: '0.2em 0.5em',
+    borderRadius: '8px',
+    display: 'inline-block',
+    lineHeight: '1.45',
+    letterSpacing: '0.3px',
+    bottom: bottomOffset,
+    position: 'absolute'
+  });
 }
 
-function showErr(msg) {
-  clearInterval(msgTimer);
-  document.getElementById('loader').style.display = 'none';
-  document.getElementById('err').style.display = 'flex';
-  document.getElementById('err-detail').textContent = msg || '';
-  var vidsrcUrl = s
-    ? 'https://vidsrc.xyz/embed/tv?tmdb=' + id + '&season=' + s + '&episode=' + (e || '1')
-    : 'https://vidsrc.xyz/embed/movie?tmdb=' + id;
+function initStyleListeners() {
+  fontSizeRange.addEventListener('input', () => {
+    fontSizeVal.innerText = fontSizeRange.value + 'px';
+    applySubtitleStyles();
+  });
+  fontFamilySelect.addEventListener('change', () => applySubtitleStyles());
+  textColorPicker.addEventListener('input', () => applySubtitleStyles());
+  bgColorPicker.addEventListener('input', () => applySubtitleStyles());
+  bgOpacityRange.addEventListener('input', () => {
+    opacityValSpan.innerText = bgOpacityRange.value.toFixed(2);
+    applySubtitleStyles();
+  });
+  shadowSelect.addEventListener('change', () => applySubtitleStyles());
+  bottomOffsetRange.addEventListener('input', () => {
+    offsetValSpan.innerText = bottomOffsetRange.value + 'px';
+    applySubtitleStyles();
+  });
+}
+
+// ========== FETCH SUBTITLES VIA WYZIE API ==========
+async function fetchSubtitleUrl(tmdbId, language, isTv, season, episode) {
+  try {
+    let searchId = tmdbId;
+    if (isTv && season && episode) {
+      // For TV shows, Wyzie API typically uses format: tv/{tmdbId}/{season}/{episode}
+      searchId = `tv/${tmdbId}/${season}/${episode}`;
+    } else if (isTv) {
+      searchId = `tv/${tmdbId}`;
+    } else {
+      searchId = `movie/${tmdbId}`;
+    }
+    
+    const apiUrl = `https://sub.wyzie.io/search?id=${searchId}&language=${language}&key=${WYZIE_API_KEY}`;
+    console.log('Fetching subtitles from:', apiUrl);
+    
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`Wyzie API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Wyzie response:', data);
+    
+    // Handle different response structures
+    if (data.url) {
+      return data.url;
+    } else if (data.subtitle_url) {
+      return data.subtitle_url;
+    } else if (data.subtitles && data.subtitles.length > 0) {
+      return data.subtitles[0].url;
+    } else if (Array.isArray(data) && data.length > 0) {
+      return data[0].url || data[0].subtitle_url;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch subtitles:', error);
+    return null;
+  }
+}
+
+// ========== LOAD SUBTITLES INTO WYZIE ==========
+async function loadSubtitlesForMedia(language = 'en') {
+  if (!currentMediaId) return false;
+  
+  try {
+    const subUrl = await fetchSubtitleUrl(
+      currentMediaId, 
+      language, 
+      currentIsTv, 
+      currentSeason, 
+      currentEpisode
+    );
+    
+    if (!subUrl) {
+      console.log('No subtitles found for language:', language);
+      return false;
+    }
+    
+    // Destroy existing wyzie instance if any
+    if (wyzieInstance) {
+      wyzieInstance.destroy();
+      wyzieInstance = null;
+    }
+    
+    // Create proxied URL to avoid CORS
+    const proxiedUrl = '/api?url=' + encodeURIComponent(subUrl);
+    
+    // Initialize Wyzie
+    wyzieInstance = new Wyzie({
+      video: videoEl,
+      subtitleUrl: proxiedUrl,
+      defaultEnabled: subtitlesEnabled,
+      style: {
+        fontSize: '22px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        color: '#FFFFFF',
+        backgroundColor: 'rgba(0,0,0,0.75)',
+        textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
+        padding: '0.2em 0.5em',
+        borderRadius: '8px',
+        textAlign: 'center',
+        bottom: '12px'
+      }
+    });
+    
+    wyzieInstance.enable();
+    subtitlesEnabled = true;
+    ccToggleBtn.textContent = '🔊 CC On';
+    subtitlePanel.style.display = 'flex';
+    
+    // Apply any custom styles from saved settings
+    applySubtitleStyles();
+    
+    return true;
+  } catch (error) {
+    console.error('Wyzie initialization error:', error);
+    return false;
+  }
+}
+
+// ========== TOGGLE SUBTITLES ==========
+function toggleSubtitles() {
+  if (!wyzieInstance) return;
+  if (subtitlesEnabled) {
+    wyzieInstance.disable();
+    ccToggleBtn.textContent = '🔇 CC Off';
+    subtitlesEnabled = false;
+  } else {
+    wyzieInstance.enable();
+    ccToggleBtn.textContent = '🔊 CC On';
+    subtitlesEnabled = true;
+  }
+}
+
+// ========== LANGUAGE CHANGE HANDLER ==========
+async function onLanguageChange() {
+  const selectedLang = langSelector.value;
+  if (!currentMediaId) return;
+  
+  // Show loading indicator on panel
+  const originalText = ccToggleBtn.textContent;
+  ccToggleBtn.textContent = '⏳ Loading...';
+  
+  await loadSubtitlesForMedia(selectedLang);
+  
+  ccToggleBtn.textContent = originalText;
+}
+
+// ========== MESSAGES & UI HELPERS ==========
+const rotatingMessages = [
+  'Loading stream...', 'Contacting mothership...', 'Bribing the servers...',
+  'Untangling cables...', 'Asking nicely...', 'Decoding matrix...',
+  'Warming hamsters...', 'Negotiating cloud...', 'Almost there...',
+  'Fetching subtitles...', 'Summoning bandwidth...'
+];
+let msgInterval;
+
+function startMessageRotation() {
+  let idx = 0;
+  const msgEl = document.getElementById('loader-text');
+  msgInterval = setInterval(() => {
+    idx = (idx + 1) % rotatingMessages.length;
+    msgEl.textContent = rotatingMessages[idx];
+  }, 2200);
+}
+
+function stopMessageRotation() {
+  if (msgInterval) clearInterval(msgInterval);
+}
+
+async function loadBackdrop(id, isTv) {
+  const type = isTv ? 'tv' : 'movie';
+  try {
+    const r = await fetch(`https://api.themoviedb.org/3/${type}/${id}?api_key=${TMDB_KEY}`);
+    const d = await r.json();
+    const img = d.backdrop_path || d.poster_path;
+    if (img) {
+      const url = `https://wsrv.nl/?url=${encodeURIComponent('https://image.tmdb.org/t/p/w1280' + img)}&bg=black&blur=3`;
+      const bgDiv = document.getElementById('loader-bg');
+      const preload = new Image();
+      preload.onload = () => { bgDiv.style.backgroundImage = `url(${url})`; bgDiv.style.opacity = '1'; };
+      preload.src = url;
+    }
+  } catch(e) {}
+}
+
+function showPlayerUI() {
+  stopMessageRotation();
+  loaderDiv.style.display = 'none';
+  playerDiv.style.display = 'block';
+}
+
+function showError(msg) {
+  stopMessageRotation();
+  loaderDiv.style.display = 'none';
+  errDiv.style.display = 'flex';
+  document.getElementById('err-detail').innerText = msg || '';
+  const urlParams = new URLSearchParams(location.search);
+  const isTv = !!urlParams.get('s');
+  const mid = urlParams.get('id');
+  const seas = urlParams.get('s') || '';
+  const ep = urlParams.get('e') || '1';
+  const vidsrcUrl = isTv ? `https://vidsrc.xyz/embed/tv?tmdb=${mid}&season=${seas}&episode=${ep}` : `https://vidsrc.xyz/embed/movie?tmdb=${mid}`;
   document.getElementById('err-link').href = vidsrcUrl;
 }
 
-function loadBackdrop(id, isTv) {
-  var type = isTv ? 'tv' : 'movie';
-  fetch('https://api.themoviedb.org/3/' + type + '/' + id + '?api_key=' + TMDB_KEY)
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var img = d.backdrop_path || d.poster_path;
-      if (!img) return;
-      var url = 'https://wsrv.nl/?url=' + encodeURIComponent('https://image.tmdb.org/t/p/w1280' + img) + '&bg=black&blur=3';
-      var bg = document.getElementById('loader-bg');
-      var preload = new Image();
-      preload.onload = function() { bg.style.backgroundImage = 'url(' + url + ')'; bg.style.opacity = '1'; };
-      preload.src = url;
-    })
-    .catch(function() {});
-}
-
-if (!id) {
-  clearInterval(msgTimer);
-  document.getElementById('loader').style.display = 'none';
-  document.getElementById('usage').style.display = 'flex';
-} else {
-  loadBackdrop(id, !!s);
-  var api = '/api?' + (s ? 'id='+id+'&s='+s+'&e='+(e||'1') : 'id='+id);
-  fetch(api)
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (d.error) return showErr(d.error);
-      play(d.url);
-    })
-    .catch(function(err) { showErr(err.message); });
-}
-
-function play(rawUrl) {
-  var src = '/api?url=' + encodeURIComponent(rawUrl);
-  var v = document.getElementById('v');
+// ========== MAIN STREAM PLAYBACK ==========
+async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
+  // Store media info for subtitle fetching
+  currentMediaId = tmdbId;
+  currentIsTv = isTv;
+  currentSeason = season;
+  currentEpisode = episode;
+  
+  const src = '/api?url=' + encodeURIComponent(playlistUrl);
+  
   if (Hls.isSupported()) {
-    var hls = new Hls({ enableWorker: true });
+    const hls = new Hls({ enableWorker: true, capLevelToPlayerSize: true });
     hls.loadSource(src);
-    hls.attachMedia(v);
-    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-      showPlayer();
-      v.play().catch(function(){});
+    hls.attachMedia(videoEl);
+    
+    hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+      showPlayerUI();
+      
+      // Try to load subtitles from Wyzie API
+      const defaultLang = langSelector.value || 'en';
+      const subLoaded = await loadSubtitlesForMedia(defaultLang);
+      
+      if (!subLoaded) {
+        console.log('No subtitles available for this content');
+        subtitlePanel.style.display = 'none';
+      }
+      
+      videoEl.play().catch(e => console.log('Autoplay blocked:', e));
     });
-    hls.on(Hls.Events.ERROR, function(_, d) {
-      if (d.fatal) showErr(d.details || 'HLS fatal error');
+    
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) showError(data.details || 'HLS fatal error');
+    });
+  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.src = src;
+    videoEl.addEventListener('canplay', async () => {
+      showPlayerUI();
+      const subLoaded = await loadSubtitlesForMedia('en');
+      if (!subLoaded) subtitlePanel.style.display = 'none';
+      videoEl.play().catch(()=>{});
     });
   } else {
-    v.src = src;
-    v.addEventListener('canplay', showPlayer, { once: true });
-    v.play().catch(function(err) { showErr(err.message); });
+    showError('HLS not supported');
   }
 }
+
+// ========== ENTRY POINT ==========
+const urlParams = new URLSearchParams(location.search);
+const id = urlParams.get('id');
+const season = urlParams.get('s');
+const episode = urlParams.get('e');
+const isTv = !!season;
+
+if (!id) {
+  stopMessageRotation();
+  loaderDiv.style.display = 'none';
+  usageDiv.style.display = 'flex';
+} else {
+  startMessageRotation();
+  loadBackdrop(id, isTv);
+  
+  const apiEndpoint = `/api?${isTv ? `id=${id}&s=${season}&e=${episode || '1'}` : `id=${id}`}`;
+  
+  fetch(apiEndpoint)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) throw new Error(data.error);
+      if (!data.url) throw new Error('No stream URL received');
+      playStream(data.url, id, isTv, season, episode || '1');
+    })
+    .catch(err => showError(err.message));
+}
+
+// ========== EVENT LISTENERS ==========
+ccToggleBtn?.addEventListener('click', toggleSubtitles);
+settingsToggle?.addEventListener('click', () => {
+  settingsModal.style.display = 'flex';
+});
+closeSettingsBtn?.addEventListener('click', () => {
+  settingsModal.style.display = 'none';
+  applySubtitleStyles();
+});
+settingsModal?.addEventListener('click', (e) => {
+  if (e.target === settingsModal) settingsModal.style.display = 'none';
+});
+langSelector?.addEventListener('change', onLanguageChange);
+
+initStyleListeners();
+
+// Save current settings to localStorage (optional)
+function saveSettings() {
+  const settings = {
+    fontSize: fontSizeRange.value,
+    fontFamily: fontFamilySelect.value,
+    textColor: textColorPicker.value,
+    bgColor: bgColorPicker.value,
+    bgOpacity: bgOpacityRange.value,
+    shadow: shadowSelect.value,
+    bottomOffset: bottomOffsetRange.value
+  };
+  localStorage.setItem('subtitleSettings', JSON.stringify(settings));
+}
+
+function loadSettings() {
+  const saved = localStorage.getItem('subtitleSettings');
+  if (saved) {
+    try {
+      const settings = JSON.parse(saved);
+      fontSizeRange.value = settings.fontSize || 22;
+      fontFamilySelect.value = settings.fontFamily || 'system-ui, -apple-system, sans-serif';
+      textColorPicker.value = settings.textColor || '#FFFFFF';
+      bgColorPicker.value = settings.bgColor || '#000000';
+      bgOpacityRange.value = settings.bgOpacity || 0.75;
+      shadowSelect.value = settings.shadow || 'soft';
+      bottomOffsetRange.value = settings.bottomOffset || 12;
+      
+      fontSizeVal.innerText = fontSizeRange.value + 'px';
+      opacityValSpan.innerText = bgOpacityRange.value.toFixed(2);
+      offsetValSpan.innerText = bottomOffsetRange.value + 'px';
+      
+      if (wyzieInstance) applySubtitleStyles();
+    } catch(e) {}
+  }
+}
+
+// Auto-save on style change
+[fontSizeRange, fontFamilySelect, textColorPicker, bgColorPicker, bgOpacityRange, shadowSelect, bottomOffsetRange].forEach(el => {
+  if (el) el.addEventListener('change', saveSettings);
+});
+
+loadSettings();
 </script>
 </body>
 </html>
