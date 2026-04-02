@@ -164,55 +164,20 @@ video {
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
   max-width: 90%;
   word-wrap: break-word;
-  transition: all 0.15s ease;
-}
-
-/* CC Button - positioned near video controls */
-.cc-button-container {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 60;
-}
-
-.cc-button {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 10px 16px;
-  border-radius: 40px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
-
-.cc-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.cc-button.active {
-  background: rgba(59, 130, 246, 0.8);
-  border-color: rgba(59, 130, 246, 1);
 }
 
 /* Language Menu */
 .lang-menu {
   position: fixed;
-  bottom: 80px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(28, 28, 35, 0.98);
   backdrop-filter: blur(12px);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 8px;
-  min-width: 180px;
-  z-index: 61;
+  min-width: 200px;
+  z-index: 100;
   display: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
   max-height: 400px;
   overflow-y: auto;
 }
@@ -244,10 +209,19 @@ video {
   margin: 8px 0;
 }
 
+.lang-menu .menu-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #aaa;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 8px;
+}
+
 .no-subs-badge {
   position: fixed;
   bottom: 80px;
-  right: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 55;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
@@ -256,16 +230,12 @@ video {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   display: none;
+  white-space: nowrap;
 }
 
-/* Responsive font size for mobile */
 @media (max-width: 768px) {
   .subtitle-text {
     font-size: 14px;
-  }
-  .cc-button {
-    padding: 8px 14px;
-    font-size: 12px;
   }
 }
 
@@ -308,21 +278,12 @@ video {
 
 <div class="no-subs-badge" id="no-subs-badge">📄 No subtitles available</div>
 
-<!-- CC Button -->
-<div class="cc-button-container">
-  <button class="cc-button" id="cc-button">
-    <span>📺</span> <span id="cc-button-text">CC</span>
-  </button>
-</div>
-
 <!-- Language Selection Menu -->
 <div class="lang-menu" id="lang-menu">
-  <div style="padding: 8px 12px; font-size: 12px; color: #aaa; border-bottom: 1px solid rgba(255,255,255,0.1);">
-    Select Subtitle Language
-  </div>
+  <div class="menu-header">📺 Select Subtitle Language</div>
   <div id="lang-list"></div>
   <div class="divider"></div>
-  <button id="disable-subtitle-btn" style="color: #ff6b6b;">🚫 Disable Subtitles</button>
+  <button id="disable-subtitle-btn" style="color: #ff6b6b;">🚫 Turn Off Subtitles</button>
 </div>
 
 <script>
@@ -339,11 +300,80 @@ let availableSubtitles = [];
 let currentSubtitleCues = [];
 let subtitleEnabled = true;
 let subtitleInterval = null;
-let currentSubtitleIndex = -1;
-let currentSubtitleUrl = null;
 let currentLanguage = 'en';
 
-// ========== CUSTOM SUBTITLE RENDERING ==========
+// ========== ROBUST SRT PARSER ==========
+function parseSRT(srtText) {
+  const cues = [];
+  
+  if (!srtText || typeof srtText !== 'string') {
+    console.warn('Invalid SRT text');
+    return cues;
+  }
+  
+  // Normalize line endings and trim
+  const normalized = srtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  
+  // Split by double newline (cue blocks)
+  const blocks = normalized.split(/\n\s*\n/);
+  
+  for (const block of blocks) {
+    if (!block.trim()) continue;
+    
+    const lines = block.split('\n');
+    if (lines.length < 2) continue;
+    
+    // Find the line that contains the timestamp (skip potential index numbers)
+    let timeLineIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Check for timestamp pattern: 00:00:00,000 --> 00:00:00,000 or 00:00:00.000 --> 00:00:00.000
+      if (line.match(/\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,.]\d{3}/)) {
+        timeLineIndex = i;
+        break;
+      }
+    }
+    
+    if (timeLineIndex === -1) continue;
+    
+    const timeLine = lines[timeLineIndex];
+    // Extract text (all lines after the timestamp)
+    const textLines = lines.slice(timeLineIndex + 1);
+    const text = textLines.join(' ').trim();
+    
+    if (!text) continue;
+    
+    // Parse timestamp - supports both comma and dot as millisecond separator
+    const timeMatch = timeLine.match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/);
+    
+    if (timeMatch) {
+      const startHours = parseInt(timeMatch[1], 10);
+      const startMinutes = parseInt(timeMatch[2], 10);
+      const startSeconds = parseInt(timeMatch[3], 10);
+      const startMs = parseInt(timeMatch[4], 10);
+      
+      const endHours = parseInt(timeMatch[5], 10);
+      const endMinutes = parseInt(timeMatch[6], 10);
+      const endSeconds = parseInt(timeMatch[7], 10);
+      const endMs = parseInt(timeMatch[8], 10);
+      
+      const start = startHours * 3600 + startMinutes * 60 + startSeconds + startMs / 1000;
+      const end = endHours * 3600 + endMinutes * 60 + endSeconds + endMs / 1000;
+      
+      if (start < end && text) {
+        cues.push({ start, end, text });
+      }
+    }
+  }
+  
+  // Sort cues by start time
+  cues.sort((a, b) => a.start - b.start);
+  
+  console.log(`Parsed ${cues.length} subtitle cues`);
+  return cues;
+}
+
+// ========== SUBTITLE FUNCTIONS ==========
 async function fetchSubtitles(tmdbId, language, isTv, season, episode) {
   try {
     let searchId = tmdbId;
@@ -367,23 +397,14 @@ async function fetchSubtitles(tmdbId, language, isTv, season, episode) {
   }
 }
 
-async function fetchAllSubtitlesForLanguages(tmdbId, isTv, season, episode) {
-  const languages = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi'];
-  const allSubtitles = {};
-  
-  for (const lang of languages) {
-    const subs = await fetchSubtitles(tmdbId, lang, isTv, season, episode);
-    if (subs.length > 0) {
-      allSubtitles[lang] = subs;
-    }
-  }
-  return allSubtitles;
-}
-
 async function loadSRT(url) {
   try {
     const proxyUrl = '/api?url=' + encodeURIComponent(url);
     const response = await fetch(proxyUrl);
+    if (!response.ok) {
+      console.error('Failed to load SRT file:', response.status);
+      return [];
+    }
     const srtText = await response.text();
     return parseSRT(srtText);
   } catch (error) {
@@ -392,89 +413,67 @@ async function loadSRT(url) {
   }
 }
 
-function parseSRT(srtText) {
-  const cues = [];
-  const blocks = srtText.trim().split(/\r?\n\r?\n/);
-  
-  for (const block of blocks) {
-    const lines = block.split(/\r?\n/);
-    if (lines.length >= 3) {
-      const timeMatch = lines[1].match(/(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})/);
-      if (timeMatch) {
-        const start = parseSRTTime(timeMatch[1]);
-        const end = parseSRTTime(timeMatch[2]);
-        const text = lines.slice(2).join(' ').trim();
-        if (text) {
-          cues.push({ start, end, text });
-        }
-      }
-    }
-  }
-  return cues;
-}
-
-function parseSRTTime(timeStr) {
-  const matches = timeStr.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
-  if (matches) {
-    const hours = parseInt(matches[1]);
-    const minutes = parseInt(matches[2]);
-    const seconds = parseInt(matches[3]);
-    const milliseconds = parseInt(matches[4]);
-    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
-  }
-  return 0;
-}
-
 function updateSubtitleDisplay() {
+  const subtitleDisplay = document.getElementById('subtitle-display');
+  if (!subtitleDisplay) return;
+  
   if (!videoElement || !subtitleEnabled || !currentSubtitleCues.length) {
-    const subtitleDisplay = document.getElementById('subtitle-display');
-    if (subtitleDisplay) subtitleDisplay.textContent = '';
+    subtitleDisplay.textContent = '';
     return;
   }
   
   const currentTime = videoElement.currentTime;
   let activeCue = null;
   
-  for (const cue of currentSubtitleCues) {
+  // Binary search for efficiency (cues are sorted)
+  let left = 0;
+  let right = currentSubtitleCues.length - 1;
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    const cue = currentSubtitleCues[mid];
     if (currentTime >= cue.start && currentTime <= cue.end) {
       activeCue = cue;
       break;
+    } else if (currentTime < cue.start) {
+      right = mid - 1;
+    } else {
+      left = mid + 1;
     }
   }
   
-  const subtitleDisplay = document.getElementById('subtitle-display');
-  if (activeCue) {
-    subtitleDisplay.textContent = activeCue.text;
-  } else {
-    subtitleDisplay.textContent = '';
+  // Fallback linear search if binary search missed
+  if (!activeCue) {
+    for (const cue of currentSubtitleCues) {
+      if (currentTime >= cue.start && currentTime <= cue.end) {
+        activeCue = cue;
+        break;
+      }
+    }
   }
+  
+  subtitleDisplay.textContent = activeCue ? activeCue.text : '';
 }
 
 async function loadSubtitleByUrl(url) {
   if (!url) return false;
   
-  currentSubtitleUrl = url;
-  
   try {
-    // Clear existing interval
     if (subtitleInterval) {
       clearInterval(subtitleInterval);
     }
     
-    // Load new SRT
-    currentSubtitleCues = await loadSRT(url);
+    const cues = await loadSRT(url);
     
-    if (currentSubtitleCues.length) {
+    if (cues.length > 0) {
+      currentSubtitleCues = cues;
       subtitleEnabled = true;
       document.getElementById('no-subs-badge').style.display = 'none';
-      document.getElementById('cc-button-text').textContent = 'CC On';
-      document.getElementById('cc-button').classList.add('active');
-      
-      // Start subtitle update interval
       subtitleInterval = setInterval(updateSubtitleDisplay, 100);
       return true;
+    } else {
+      console.warn('No valid cues found in subtitle file');
+      return false;
     }
-    return false;
   } catch (error) {
     console.error('Load subtitle error:', error);
     return false;
@@ -491,8 +490,6 @@ async function loadSubtitles(language = 'en') {
     
     if (!availableSubtitles.length) {
       noSubsBadge.style.display = 'block';
-      document.getElementById('cc-button-text').textContent = 'No Subs';
-      document.getElementById('cc-button').classList.remove('active');
       return false;
     }
     
@@ -500,7 +497,6 @@ async function loadSubtitles(language = 'en') {
     const success = await loadSubtitleByUrl(availableSubtitles[0].url);
     if (!success) {
       noSubsBadge.style.display = 'block';
-      document.getElementById('cc-button-text').textContent = 'Error';
       return false;
     }
     
@@ -520,9 +516,6 @@ function disableSubtitles() {
     subtitleInterval = null;
   }
   document.getElementById('subtitle-display').textContent = '';
-  document.getElementById('cc-button-text').textContent = 'CC Off';
-  document.getElementById('cc-button').classList.remove('active');
-  currentSubtitleCues = [];
 }
 
 function enableSubtitles() {
@@ -532,14 +525,11 @@ function enableSubtitles() {
       clearInterval(subtitleInterval);
     }
     subtitleInterval = setInterval(updateSubtitleDisplay, 100);
-    document.getElementById('cc-button-text').textContent = 'CC On';
-    document.getElementById('cc-button').classList.add('active');
   }
 }
 
 function toggleSubtitles() {
   if (!currentSubtitleCues.length && availableSubtitles.length === 0) {
-    // No subtitles loaded, try to load
     loadSubtitles(currentLanguage);
   } else if (subtitleEnabled) {
     disableSubtitles();
@@ -548,39 +538,45 @@ function toggleSubtitles() {
   }
 }
 
-// ========== CC BUTTON AND MENU ==========
-function showLanguageMenu() {
-  const menu = document.getElementById('lang-menu');
-  const isVisible = menu.classList.contains('show');
+// ========== CONTEXT MENU INTEGRATION ==========
+function setupContextMenu() {
+  const video = document.getElementById('v');
+  if (!video) return;
   
-  if (isVisible) {
-    menu.classList.remove('show');
-  } else {
-    // Populate language list
-    const langList = document.getElementById('lang-list');
-    const languages = [
-      { code: 'en', name: '🇬🇧 English' },
-      { code: 'es', name: '🇪🇸 Español' },
-      { code: 'fr', name: '🇫🇷 Français' },
-      { code: 'de', name: '🇩🇪 Deutsch' },
-      { code: 'it', name: '🇮🇹 Italiano' },
-      { code: 'pt', name: '🇵🇹 Português' },
-      { code: 'ru', name: '🇷🇺 Русский' },
-      { code: 'ja', name: '🇯🇵 日本語' },
-      { code: 'ko', name: '🇰🇷 한국어' },
-      { code: 'zh', name: '🇨🇳 中文' },
-      { code: 'ar', name: '🇸🇦 العربية' },
-      { code: 'hi', name: '🇮🇳 हिन्दी' }
-    ];
-    
-    langList.innerHTML = languages.map(lang => `
-      <button onclick="selectLanguage('${lang.code}')">
-        ${lang.name}
-      </button>
-    `).join('');
-    
-    menu.classList.add('show');
-  }
+  video.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showLanguageMenuAt(e.clientX, e.clientY);
+  });
+}
+
+function showLanguageMenuAt(x, y) {
+  const menu = document.getElementById('lang-menu');
+  const langList = document.getElementById('lang-list');
+  
+  const languages = [
+    { code: 'en', name: '🇬🇧 English' },
+    { code: 'es', name: '🇪🇸 Español' },
+    { code: 'fr', name: '🇫🇷 Français' },
+    { code: 'de', name: '🇩🇪 Deutsch' },
+    { code: 'it', name: '🇮🇹 Italiano' },
+    { code: 'pt', name: '🇵🇹 Português' },
+    { code: 'ru', name: '🇷🇺 Русский' },
+    { code: 'ja', name: '🇯🇵 日本語' },
+    { code: 'ko', name: '🇰🇷 한국어' },
+    { code: 'zh', name: '🇨🇳 中文' },
+    { code: 'ar', name: '🇸🇦 العربية' },
+    { code: 'hi', name: '🇮🇳 हिन्दी' }
+  ];
+  
+  langList.innerHTML = languages.map(lang => `
+    <button onclick="window.selectLanguage('${lang.code}')">
+      ${lang.name}
+    </button>
+  `).join('');
+  
+  menu.style.left = Math.min(x, window.innerWidth - 220) + 'px';
+  menu.style.top = Math.max(10, y - 10) + 'px';
+  menu.classList.add('show');
 }
 
 async function selectLanguage(langCode) {
@@ -591,9 +587,16 @@ async function selectLanguage(langCode) {
 // Close menu when clicking outside
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('lang-menu');
-  const ccButton = document.getElementById('cc-button');
-  if (menu && menu.classList.contains('show') && !menu.contains(e.target) && e.target !== ccButton) {
+  if (menu && menu.classList.contains('show') && !menu.contains(e.target)) {
     menu.classList.remove('show');
+  }
+});
+
+// Keyboard shortcut: C to toggle subtitles
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'c' || e.key === 'C') {
+    e.preventDefault();
+    toggleSubtitles();
   }
 });
 
@@ -643,6 +646,7 @@ function showPlayer() {
   stopMessageRotation();
   document.getElementById('loader').style.display = 'none';
   document.getElementById('player').style.display = 'block';
+  setupContextMenu();
 }
 
 function showError(msg) {
@@ -729,29 +733,34 @@ if (!id) {
 }
 
 // ========== EVENT LISTENERS ==========
-const ccButton = document.getElementById('cc-button');
 const disableSubtitleBtn = document.getElementById('disable-subtitle-btn');
-
-ccButton?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  showLanguageMenu();
-});
-
 disableSubtitleBtn?.addEventListener('click', () => {
   document.getElementById('lang-menu').classList.remove('show');
   disableSubtitles();
 });
 
-// Clean up on page unload
+// Clean up
 window.addEventListener('beforeunload', () => {
   if (subtitleInterval) {
     clearInterval(subtitleInterval);
   }
 });
 
-// Make selectLanguage available globally
 window.selectLanguage = selectLanguage;
-window.disableSubtitles = disableSubtitles;
+
+// Show tooltip for right-click menu
+setTimeout(() => {
+  const tooltip = document.createElement('div');
+  tooltip.textContent = '💡 Right-click on video for CC & subtitle options | Press C to toggle subtitles';
+  tooltip.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:8px 16px;border-radius:40px;font-size:12px;z-index:100;animation:fadeOut 4s forwards;pointer-events:none;white-space:nowrap';
+  document.body.appendChild(tooltip);
+  
+  const style = document.createElement('style');
+  style.textContent = `@keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }`;
+  document.head.appendChild(style);
+  
+  setTimeout(() => tooltip.remove(), 4000);
+}, 2000);
 </script>
 </body>
 </html>
