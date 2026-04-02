@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stream - Netflix Style Player</title>
+<title>Stream - Netflix Style Player with Resume</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
 <style>
 * {
@@ -117,6 +117,88 @@ video {
   transform: translateX(-50%);
   font-size: 0.78rem;
   color: rgba(255,255,255,0.35);
+}
+
+/* Resume Overlay */
+.resume-overlay {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 16px 24px;
+  z-index: 60;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+  border: 1px solid rgba(255,255,255,0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.resume-overlay.show {
+  display: flex;
+}
+
+.resume-text {
+  font-size: 14px;
+  color: white;
+  text-align: center;
+}
+
+.resume-time {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e50914;
+}
+
+.resume-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.resume-btn {
+  padding: 8px 24px;
+  border-radius: 40px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.resume-btn.primary {
+  background: #e50914;
+  color: white;
+}
+
+.resume-btn.primary:hover {
+  background: #f6121d;
+  transform: scale(1.02);
+}
+
+.resume-btn.secondary {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.resume-btn.secondary:hover {
+  background: rgba(255,255,255,0.3);
 }
 
 /* Netflix Style Custom Controls */
@@ -371,6 +453,7 @@ video {
   .skip-btn { width: 32px; height: 32px; }
   .subtitle-text { font-size: 14px; }
   .dropdown-menu { right: 20px; bottom: 70px; }
+  .resume-overlay { width: 90%; min-width: auto; }
 }
 
 .no-subs-badge {
@@ -419,6 +502,16 @@ video {
 </div>
 
 <div class="no-subs-badge" id="no-subs-badge">No subtitles available</div>
+
+<!-- Resume Overlay -->
+<div class="resume-overlay" id="resume-overlay">
+  <div class="resume-text">▶️ Resume watching?</div>
+  <div class="resume-time" id="resume-time">0:00</div>
+  <div class="resume-buttons">
+    <button class="resume-btn primary" id="resume-yes">Resume</button>
+    <button class="resume-btn secondary" id="resume-no">Start Over</button>
+  </div>
+</div>
 
 <div class="custom-controls" id="custom-controls">
   <div class="progress-section">
@@ -471,14 +564,14 @@ video {
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-        <span>Menu</span>
+        
       </button>
       <button class="ctrl-btn" id="pip-btn" title="Picture in Picture">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
-  <path d="M15 13h4v4h-4z"/>
-  <path d="M17 17l3-3"/>
-</svg>
+          <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
+          <path d="M15 13h4v4h-4z"/>
+          <path d="M17 17l3-3"/>
+        </svg>
       </button>
       <button class="ctrl-btn" id="fullscreen-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -530,8 +623,71 @@ let subtitleEnabled = false;
 let subtitleInterval = null;
 let currentLanguage = 'en';
 let controlsTimeout = null;
+let saveInterval = null;
+let currentResumeTime = null;
 
-// ========== SAFE SRT PARSER (No Regex Errors) ==========
+// ========== RESUME FUNCTIONALITY ==========
+function getStorageKey() {
+  if (currentIsTv && currentSeason && currentEpisode) {
+    return 'resume_tv_' + currentMediaId + '_' + currentSeason + '_' + currentEpisode;
+  }
+  return 'resume_movie_' + currentMediaId;
+}
+
+function saveProgress() {
+  if (!videoElement || !videoElement.currentTime || !videoElement.duration) return;
+  // Don't save if near the end (last 30 seconds)
+  if (videoElement.duration - videoElement.currentTime < 30) {
+    localStorage.removeItem(getStorageKey());
+    return;
+  }
+  const progress = {
+    time: videoElement.currentTime,
+    duration: videoElement.duration,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(getStorageKey(), JSON.stringify(progress));
+}
+
+function loadSavedProgress() {
+  const saved = localStorage.getItem(getStorageKey());
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved);
+  } catch(e) {
+    return null;
+  }
+}
+
+function showResumeOverlay(savedTime) {
+  const overlay = document.getElementById('resume-overlay');
+  const resumeTimeSpan = document.getElementById('resume-time');
+  
+  function formatTime(seconds) {
+    var hrs = Math.floor(seconds / 3600);
+    var mins = Math.floor((seconds % 3600) / 60);
+    var secs = Math.floor(seconds % 60);
+    if (hrs > 0) {
+      return hrs + ':' + (mins < 10 ? '0' + mins : mins) + ':' + (secs < 10 ? '0' + secs : secs);
+    }
+    return mins + ':' + (secs < 10 ? '0' + secs : secs);
+  }
+  
+  resumeTimeSpan.textContent = formatTime(savedTime);
+  overlay.classList.add('show');
+  
+  // Auto-hide after 10 seconds
+  setTimeout(function() {
+    if (overlay.classList.contains('show')) {
+      overlay.classList.remove('show');
+      // Auto start from beginning
+      videoElement.currentTime = 0;
+      videoElement.play().catch(function() {});
+    }
+  }, 10000);
+}
+
+// ========== SAFE SRT PARSER ==========
 function parseSRT(srtText) {
   const cues = [];
   if (!srtText || typeof srtText !== 'string') return cues;
@@ -543,9 +699,7 @@ function parseSRT(srtText) {
     const line = lines[i].trim();
     if (!line) continue;
     
-    // Check if line contains timestamp (has -->)
     if (line.indexOf('-->') > -1) {
-      // Parse timestamp line
       const parts = line.split('-->');
       if (parts.length === 2) {
         const startStr = parts[0].trim();
@@ -560,7 +714,6 @@ function parseSRT(srtText) {
       }
     } 
     else if (currentCue && !line.match(/^\d+$/)) {
-      // This is text content (not a number/ID line)
       if (currentCue.text) {
         currentCue.text += ' ' + line;
       } else {
@@ -568,7 +721,6 @@ function parseSRT(srtText) {
       }
     }
     
-    // Check if next line is empty or next cue starts
     if (currentCue && currentCue.text && (i + 1 >= lines.length || lines[i + 1].trim() === '' || lines[i + 1].indexOf('-->') > -1)) {
       if (currentCue.text) {
         cues.push({ start: currentCue.start, end: currentCue.end, text: currentCue.text });
@@ -581,21 +733,16 @@ function parseSRT(srtText) {
 }
 
 function parseTime(timeStr) {
-  // Supports formats: 00:00:00,000 or 00:00:00.000
-  let hours = 0, minutes = 0, seconds = 0, milliseconds = 0;
-  
-  // Try to match with comma
   let match = timeStr.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
   if (!match) {
-    // Try with dot
     match = timeStr.match(/(\d{2}):(\d{2}):(\d{2})\.(\d{3})/);
   }
   
   if (match) {
-    hours = parseInt(match[1], 10);
-    minutes = parseInt(match[2], 10);
-    seconds = parseInt(match[3], 10);
-    milliseconds = parseInt(match[4], 10);
+    var hours = parseInt(match[1], 10);
+    var minutes = parseInt(match[2], 10);
+    var seconds = parseInt(match[3], 10);
+    var milliseconds = parseInt(match[4], 10);
     return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
   }
   return null;
@@ -876,6 +1023,26 @@ function setupControls() {
     settingsMenu.classList.remove('show');
   });
   
+  // Resume buttons
+  document.getElementById('resume-yes').addEventListener('click', function() {
+    if (currentResumeTime) {
+      videoElement.currentTime = currentResumeTime;
+    }
+    document.getElementById('resume-overlay').classList.remove('show');
+    videoElement.play().catch(function() {});
+  });
+  
+  document.getElementById('resume-no').addEventListener('click', function() {
+    localStorage.removeItem(getStorageKey());
+    document.getElementById('resume-overlay').classList.remove('show');
+    videoElement.currentTime = 0;
+    videoElement.play().catch(function() {});
+  });
+  
+  // Start auto-save interval
+  if (saveInterval) clearInterval(saveInterval);
+  saveInterval = setInterval(saveProgress, 5000);
+  
   showControls();
 }
 
@@ -936,6 +1103,15 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
       document.getElementById('player').style.display = 'block';
       setupControls();
       await loadSubtitles('en');
+      
+      // Check for saved progress
+      var savedProgress = loadSavedProgress();
+      if (savedProgress && savedProgress.time > 30 && savedProgress.time < videoElement.duration - 30) {
+        currentResumeTime = savedProgress.time;
+        showResumeOverlay(savedProgress.time);
+        videoElement.currentTime = savedProgress.time;
+      }
+      
       videoElement.play().catch(function() {});
     });
     hls.on(Hls.Events.ERROR, function(_, data) {
@@ -945,6 +1121,12 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
     showError('HLS not supported');
   }
 }
+
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+  if (saveInterval) clearInterval(saveInterval);
+  saveProgress(); // Final save
+});
 
 // ========== INIT ==========
 var urlParams = new URLSearchParams(location.search);
