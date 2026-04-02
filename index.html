@@ -55,9 +55,7 @@ html, body {
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 #loader-text {
@@ -146,56 +144,30 @@ video {
   text-overflow: ellipsis;
 }
 
-/* Subtitle Panel - positioned below video controls */
-#subtitle-panel {
+/* Subtitle Settings Button - appears near video controls */
+.subtitle-settings-btn {
   position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  right: 20px;
   z-index: 60;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(12px);
-  border-radius: 48px;
-  padding: 8px 16px;
-  display: none;
-  gap: 10px;
-  align-items: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
-.panel-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
   color: white;
-  padding: 8px 18px;
+  padding: 10px 16px;
   border-radius: 40px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
+  display: none;
+  align-items: center;
+  gap: 8px;
   transition: all 0.2s ease;
 }
 
-.panel-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+.subtitle-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
   transform: scale(0.96);
-}
-
-#lang-selector {
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 40px;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-}
-
-#lang-selector option {
-  background: #1e1e2a;
 }
 
 /* Settings Modal */
@@ -291,9 +263,8 @@ video {
 
 #no-subs-badge {
   position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  right: 20px;
   z-index: 60;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
@@ -302,7 +273,31 @@ video {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   display: none;
-  white-space: nowrap;
+}
+
+/* Playback speed indicator */
+.speed-indicator {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+  z-index: 60;
+  display: none;
+  pointer-events: none;
+  animation: fadeOut 1.5s ease forwards;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
 }
 
 .wyzie-subtitle {
@@ -337,27 +332,13 @@ video {
   <video id="v" controls autoplay playsinline></video>
 </div>
 
-<!-- Subtitle Panel -->
-<div id="subtitle-panel">
-  <select id="lang-selector">
-    <option value="en">🇬🇧 English</option>
-    <option value="es">🇪🇸 Español</option>
-    <option value="fr">🇫🇷 Français</option>
-    <option value="de">🇩🇪 Deutsch</option>
-    <option value="it">🇮🇹 Italiano</option>
-    <option value="pt">🇵🇹 Português</option>
-    <option value="ru">🇷🇺 Русский</option>
-    <option value="ja">🇯🇵 日本語</option>
-    <option value="ko">🇰🇷 한국어</option>
-    <option value="zh">🇨🇳 中文</option>
-    <option value="ar">🇸🇦 العربية</option>
-    <option value="hi">🇮🇳 हिन्दी</option>
-  </select>
-  <button class="panel-btn" id="subtitle-cc-btn">📺 CC On</button>
-  <button class="panel-btn" id="subtitle-settings-toggle">⚙️ Style</button>
-</div>
+<!-- Subtitle Settings Button -->
+<button class="subtitle-settings-btn" id="subtitle-settings-btn">
+  ⚙️ Subtitle Style
+</button>
 
 <div id="no-subs-badge">📄 No subtitles available</div>
+<div id="speed-indicator" class="speed-indicator"></div>
 
 <!-- Subtitle Settings Modal -->
 <div id="settings-modal">
@@ -433,9 +414,11 @@ let currentMediaId = null;
 let currentIsTv = false;
 let currentSeason = null;
 let currentEpisode = null;
+let currentSubtitleUrl = null;
+let availableSubtitles = [];
 
 // ========== SUBTITLE FUNCTIONS ==========
-async function fetchSubtitleUrl(tmdbId, language, isTv, season, episode) {
+async function fetchSubtitles(tmdbId, language, isTv, season, episode) {
   try {
     let searchId = tmdbId;
     if (isTv && season && episode) {
@@ -447,45 +430,34 @@ async function fetchSubtitleUrl(tmdbId, language, isTv, season, episode) {
     const response = await fetch(url);
     if (!response.ok) {
       console.warn('Wyzie API responded with status:', response.status);
-      return null;
+      return [];
     }
     
     const data = await response.json();
     console.log('Wyzie API response:', data);
     
-    // Handle different response formats
-    if (data.url) return data.url;
-    if (data.subtitle_url) return data.subtitle_url;
-    if (data.subtitles && Array.isArray(data.subtitles) && data.subtitles.length > 0) {
-      return data.subtitles[0].url || data.subtitles[0].subtitle_url;
+    // Handle array response
+    if (Array.isArray(data) && data.length > 0) {
+      return data;
     }
-    if (data.file_url) return data.file_url;
-    if (data.vtt_url) return data.vtt_url;
     
-    return null;
+    return [];
   } catch (error) {
     console.error('Failed to fetch subtitles:', error);
-    return null;
+    return [];
   }
 }
 
-async function loadSubtitles(language = 'en') {
-  if (!currentMediaId || !videoElement) return false;
+async function loadSubtitleByIndex(index) {
+  if (!availableSubtitles.length || !videoElement) return false;
   
-  const ccBtn = document.getElementById('subtitle-cc-btn');
-  const noSubsBadge = document.getElementById('no-subs-badge');
+  const subtitle = availableSubtitles[index];
+  if (!subtitle || !subtitle.url) return false;
+  
+  const subUrl = subtitle.url;
+  currentSubtitleUrl = subUrl;
   
   try {
-    const subUrl = await fetchSubtitleUrl(currentMediaId, language, currentIsTv, currentSeason, currentEpisode);
-    
-    if (!subUrl) {
-      console.log('No subtitles found for language:', language);
-      noSubsAvailable = true;
-      noSubsBadge.style.display = 'block';
-      if (ccBtn) ccBtn.textContent = '🔇 No Subs';
-      return false;
-    }
-    
     // Destroy existing instance
     if (wyzieInstance) {
       wyzieInstance.destroy();
@@ -514,18 +486,47 @@ async function loadSubtitles(language = 'en') {
     wyzieInstance.enable();
     subtitlesEnabled = true;
     noSubsAvailable = false;
-    noSubsBadge.style.display = 'none';
-    if (ccBtn) ccBtn.textContent = '📺 CC On';
+    document.getElementById('no-subs-badge').style.display = 'none';
     
-    // Apply custom styles from settings
+    // Apply custom styles
     applySubtitleStyles();
     
     return true;
   } catch (error) {
     console.error('Wyzie initialization error:', error);
+    return false;
+  }
+}
+
+async function loadSubtitles(language = 'en') {
+  if (!currentMediaId || !videoElement) return false;
+  
+  const noSubsBadge = document.getElementById('no-subs-badge');
+  
+  try {
+    availableSubtitles = await fetchSubtitles(currentMediaId, language, currentIsTv, currentSeason, currentEpisode);
+    
+    if (!availableSubtitles.length) {
+      console.log('No subtitles found for language:', language);
+      noSubsAvailable = true;
+      noSubsBadge.style.display = 'block';
+      return false;
+    }
+    
+    // Load the first subtitle
+    const success = await loadSubtitleByIndex(0);
+    if (!success) {
+      noSubsAvailable = true;
+      noSubsBadge.style.display = 'block';
+      return false;
+    }
+    
+    noSubsBadge.style.display = 'none';
+    return true;
+  } catch (error) {
+    console.error('Load subtitles error:', error);
     noSubsAvailable = true;
     noSubsBadge.style.display = 'block';
-    if (ccBtn) ccBtn.textContent = '🔇 Error';
     return false;
   }
 }
@@ -535,11 +536,9 @@ function toggleSubtitles() {
   
   if (subtitlesEnabled) {
     wyzieInstance.disable();
-    document.getElementById('subtitle-cc-btn').textContent = '🔇 CC Off';
     subtitlesEnabled = false;
   } else {
     wyzieInstance.enable();
-    document.getElementById('subtitle-cc-btn').textContent = '📺 CC On';
     subtitlesEnabled = true;
   }
 }
@@ -554,7 +553,6 @@ function applySubtitleStyles() {
   const bgOpacity = parseFloat(document.getElementById('sub-bg-opacity').value);
   const shadowType = document.getElementById('sub-shadow').value;
   
-  // Convert hex to rgba
   let bgRgba = rawBgColor;
   if (rawBgColor.startsWith('#')) {
     const r = parseInt(rawBgColor.slice(1, 3), 16);
@@ -584,12 +582,74 @@ function applySubtitleStyles() {
   });
 }
 
+// ========== PLAYBACK SPEED CONTROL ==========
+function setPlaybackSpeed(speed) {
+  if (!videoElement) return;
+  videoElement.playbackRate = speed;
+  
+  const speedIndicator = document.getElementById('speed-indicator');
+  speedIndicator.textContent = `${speed}x`;
+  speedIndicator.style.display = 'block';
+  speedIndicator.style.animation = 'none';
+  setTimeout(() => {
+    speedIndicator.style.animation = 'fadeOut 1.5s ease forwards';
+  }, 10);
+}
+
+// Add keyboard shortcuts for speed
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (!videoElement) return;
+    
+    // Ctrl + + : Increase speed
+    if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
+      e.preventDefault();
+      let newSpeed = Math.min(4, videoElement.playbackRate + 0.25);
+      setPlaybackSpeed(newSpeed);
+    }
+    // Ctrl + - : Decrease speed
+    else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+      e.preventDefault();
+      let newSpeed = Math.max(0.25, videoElement.playbackRate - 0.25);
+      setPlaybackSpeed(newSpeed);
+    }
+    // Ctrl + 0 : Reset speed to 1x
+    else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+      e.preventDefault();
+      setPlaybackSpeed(1);
+    }
+    // C : Toggle subtitles
+    else if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      toggleSubtitles();
+    }
+  });
+}
+
+// ========== PICTURE-IN-PICTURE ==========
+function setupPictureInPicture() {
+  if (!videoElement) return;
+  
+  // PiP is already supported by native controls
+  // Adding keyboard shortcut: Ctrl + P
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+      e.preventDefault();
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture();
+      } else if (videoElement) {
+        videoElement.requestPictureInPicture();
+      }
+    }
+  });
+}
+
 // ========== MESSAGES & UI HELPERS ==========
 const rotatingMessages = [
   'Loading stream...', 'Contacting the mothership...', 'Bribing the servers...',
   'Untangling the cables...', 'Asking nicely...', 'Decoding the matrix...',
   'Warming up the hamsters...', 'Negotiating with the cloud...', 'Almost there...',
-  'Convincing pixels to move...', 'Poking the API...', 'Summoning bandwidth...'
+  'Fetching subtitles...', 'Summoning bandwidth...'
 ];
 
 let msgInterval;
@@ -634,7 +694,7 @@ function showPlayer() {
   stopMessageRotation();
   document.getElementById('loader').style.display = 'none';
   document.getElementById('player').style.display = 'block';
-  document.getElementById('subtitle-panel').style.display = 'flex';
+  document.getElementById('subtitle-settings-btn').style.display = 'flex';
 }
 
 function showError(msg) {
@@ -674,7 +734,7 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
       showPlayer();
       // Try to load subtitles
       await loadSubtitles('en');
-      // Try to autoplay (may be blocked by browser)
+      // Try to autoplay
       video.play().catch(e => console.log('Autoplay blocked:', e.message));
     });
     
@@ -693,6 +753,10 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
   } else {
     showError('HLS not supported');
   }
+  
+  // Setup additional features
+  setupKeyboardShortcuts();
+  setupPictureInPicture();
 }
 
 // ========== INITIALIZATION ==========
@@ -722,9 +786,8 @@ if (!id) {
     .catch(err => showError(err.message));
 }
 
-// ========== EVENT LISTENERS FOR SUBTITLE UI ==========
-document.getElementById('subtitle-cc-btn')?.addEventListener('click', toggleSubtitles);
-document.getElementById('subtitle-settings-toggle')?.addEventListener('click', () => {
+// ========== EVENT LISTENERS ==========
+document.getElementById('subtitle-settings-btn')?.addEventListener('click', () => {
   document.getElementById('settings-modal').style.display = 'flex';
 });
 document.getElementById('close-settings-btn')?.addEventListener('click', () => {
@@ -735,9 +798,6 @@ document.getElementById('settings-modal')?.addEventListener('click', (e) => {
   if (e.target === document.getElementById('settings-modal')) {
     document.getElementById('settings-modal').style.display = 'none';
   }
-});
-document.getElementById('lang-selector')?.addEventListener('change', (e) => {
-  loadSubtitles(e.target.value);
 });
 
 // Style input listeners
