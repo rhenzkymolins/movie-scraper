@@ -156,152 +156,95 @@ video {
 
 .subtitle-text {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.75);
+  background: transparent;
   color: white;
-  font-size: 22px;
+  font-size: 18px;
   font-family: system-ui, -apple-system, sans-serif;
-  padding: 0.2em 0.5em;
-  border-radius: 8px;
+  padding: 0.1em 0.3em;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
   max-width: 90%;
   word-wrap: break-word;
   transition: all 0.15s ease;
 }
 
-/* Settings Panel - Integrated */
-.settings-panel {
+/* CC Button - positioned near video controls */
+.cc-button-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 60;
+}
+
+.cc-button {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 40px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.cc-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.cc-button.active {
+  background: rgba(59, 130, 246, 0.8);
+  border-color: rgba(59, 130, 246, 1);
+}
+
+/* Language Menu */
+.lang-menu {
   position: fixed;
   bottom: 80px;
   right: 20px;
-  z-index: 60;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(12px);
   border-radius: 16px;
-  padding: 12px;
+  padding: 8px;
+  min-width: 180px;
+  z-index: 61;
   display: none;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 200px;
   border: 1px solid rgba(255, 255, 255, 0.2);
+  max-height: 400px;
+  overflow-y: auto;
 }
 
-.settings-panel.show {
-  display: flex;
+.lang-menu.show {
+  display: block;
 }
 
-.settings-panel button {
-  background: rgba(255, 255, 255, 0.1);
+.lang-menu button {
+  width: 100%;
+  background: transparent;
   border: none;
   color: white;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
+  padding: 10px 12px;
   text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
-.settings-panel button:hover {
-  background: rgba(255, 255, 255, 0.2);
+.lang-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.settings-panel .divider {
+.lang-menu .divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 5px 0;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 8px 0;
 }
 
-.settings-panel .speed-option, .settings-panel .subtitle-option {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.speed-value {
-  color: #60a5fa;
-}
-
-.subtitle-style-btn {
-  background: rgba(59, 130, 246, 0.3) !important;
-}
-
-/* Modal for detailed settings */
-#style-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.95);
-  backdrop-filter: blur(12px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.style-card {
-  background: #1a1a24;
-  border-radius: 24px;
-  width: 90%;
-  max-width: 400px;
-  padding: 24px;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.style-card h3 {
-  font-size: 1.4rem;
-  margin-bottom: 20px;
-}
-
-.style-control {
-  margin-bottom: 16px;
-}
-
-.style-control label {
-  display: block;
-  font-size: 0.85rem;
-  margin-bottom: 6px;
-  color: #ccc;
-}
-
-.style-control input, .style-control select {
-  width: 100%;
-  background: #2a2a35;
-  border: 1px solid #3a3a45;
-  padding: 8px 12px;
-  border-radius: 12px;
-  color: white;
-  font-size: 0.9rem;
-  outline: none;
-}
-
-.style-control input[type="color"] {
-  width: 60px;
-  height: 40px;
-  padding: 2px;
-}
-
-.range-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.range-row input {
-  flex: 1;
-}
-
-.close-style {
-  background: white;
-  border: none;
-  width: 100%;
-  padding: 10px;
-  border-radius: 12px;
-  font-weight: bold;
-  margin-top: 16px;
-  cursor: pointer;
-}
-
-#no-subs-badge {
+.no-subs-badge {
   position: fixed;
   bottom: 80px;
   right: 20px;
@@ -313,6 +256,23 @@ video {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
   display: none;
+}
+
+/* Responsive font size for mobile */
+@media (max-width: 768px) {
+  .subtitle-text {
+    font-size: 14px;
+  }
+  .cc-button {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .subtitle-text {
+    font-size: 12px;
+  }
 }
 </style>
 </head>
@@ -346,74 +306,23 @@ video {
   <div class="subtitle-text" id="subtitle-display"></div>
 </div>
 
-<div id="no-subs-badge">📄 No subtitles available</div>
+<div class="no-subs-badge" id="no-subs-badge">📄 No subtitles available</div>
 
-<!-- Settings Panel -->
-<div id="settings-panel" class="settings-panel">
-  <div class="speed-option">
-    <span>▶ Playback Speed</span>
-    <span class="speed-value" id="current-speed">1x</span>
+<!-- CC Button -->
+<div class="cc-button-container">
+  <button class="cc-button" id="cc-button">
+    <span>📺</span> <span id="cc-button-text">CC</span>
+  </button>
+</div>
+
+<!-- Language Selection Menu -->
+<div class="lang-menu" id="lang-menu">
+  <div style="padding: 8px 12px; font-size: 12px; color: #aaa; border-bottom: 1px solid rgba(255,255,255,0.1);">
+    Select Subtitle Language
   </div>
-  <button id="speed-075">0.75x</button>
-  <button id="speed-1">1x (Normal)</button>
-  <button id="speed-125">1.25x</button>
-  <button id="speed-15">1.5x</button>
-  <button id="speed-2">2x</button>
+  <div id="lang-list"></div>
   <div class="divider"></div>
-  <div class="subtitle-option">
-    <span>📝 Subtitles</span>
-  </div>
-  <button id="subtitle-toggle">🔊 CC On/Off</button>
-  <button id="subtitle-language">🌐 Change Language</button>
-  <button id="subtitle-style-btn" class="subtitle-style-btn">🎨 Subtitle Style</button>
-</div>
-
-<!-- Language Selection Modal -->
-<div id="lang-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);align-items:center;justify-content:center;z-index:100">
-  <div class="style-card" style="max-width:300px">
-    <h3>Select Language</h3>
-    <div id="lang-list" style="max-height:300px;overflow-y:auto"></div>
-    <button class="close-style" onclick="document.getElementById('lang-modal').style.display='none'">Cancel</button>
-  </div>
-</div>
-
-<!-- Subtitle Style Modal -->
-<div id="style-modal">
-  <div class="style-card">
-    <h3>🎨 Subtitle Style</h3>
-    <div class="style-control">
-      <label>Font Size</label>
-      <div class="range-row">
-        <input type="range" id="font-size" min="12" max="48" step="1" value="22">
-        <span id="font-size-val">22px</span>
-      </div>
-    </div>
-    <div class="style-control">
-      <label>Font Family</label>
-      <select id="font-family">
-        <option value="system-ui, sans-serif">System</option>
-        <option value="'Segoe UI', Roboto">Segoe UI</option>
-        <option value="'Inter', sans-serif">Inter</option>
-        <option value="'Courier New', monospace">Monospace</option>
-      </select>
-    </div>
-    <div class="style-control">
-      <label>Text Color</label>
-      <input type="color" id="text-color" value="#FFFFFF">
-    </div>
-    <div class="style-control">
-      <label>Background Color</label>
-      <input type="color" id="bg-color" value="#000000">
-    </div>
-    <div class="style-control">
-      <label>Background Opacity</label>
-      <div class="range-row">
-        <input type="range" id="bg-opacity" min="0" max="1" step="0.05" value="0.75">
-        <span id="opacity-val">0.75</span>
-      </div>
-    </div>
-    <button class="close-style" id="close-style-btn">Apply & Close</button>
-  </div>
+  <button id="disable-subtitle-btn" style="color: #ff6b6b;">🚫 Disable Subtitles</button>
 </div>
 
 <script>
@@ -430,8 +339,9 @@ let availableSubtitles = [];
 let currentSubtitleCues = [];
 let subtitleEnabled = true;
 let subtitleInterval = null;
-let currentSubtitleIndex = 0;
+let currentSubtitleIndex = -1;
 let currentSubtitleUrl = null;
+let currentLanguage = 'en';
 
 // ========== CUSTOM SUBTITLE RENDERING ==========
 async function fetchSubtitles(tmdbId, language, isTv, season, episode) {
@@ -455,6 +365,19 @@ async function fetchSubtitles(tmdbId, language, isTv, season, episode) {
     console.error('Failed to fetch subtitles:', error);
     return [];
   }
+}
+
+async function fetchAllSubtitlesForLanguages(tmdbId, isTv, season, episode) {
+  const languages = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi'];
+  const allSubtitles = {};
+  
+  for (const lang of languages) {
+    const subs = await fetchSubtitles(tmdbId, lang, isTv, season, episode);
+    if (subs.length > 0) {
+      allSubtitles[lang] = subs;
+    }
+  }
+  return allSubtitles;
 }
 
 async function loadSRT(url) {
@@ -522,43 +445,15 @@ function updateSubtitleDisplay() {
   const subtitleDisplay = document.getElementById('subtitle-display');
   if (activeCue) {
     subtitleDisplay.textContent = activeCue.text;
-    applySubtitleStylesToElement();
   } else {
     subtitleDisplay.textContent = '';
   }
 }
 
-function applySubtitleStylesToElement() {
-  const subtitleDisplay = document.getElementById('subtitle-display');
-  if (!subtitleDisplay) return;
+async function loadSubtitleByUrl(url) {
+  if (!url) return false;
   
-  const fontSize = document.getElementById('font-size').value + 'px';
-  const fontFamily = document.getElementById('font-family').value;
-  const textColor = document.getElementById('text-color').value;
-  const bgColor = document.getElementById('bg-color').value;
-  const bgOpacity = parseFloat(document.getElementById('bg-opacity').value);
-  
-  let bgRgba = bgColor;
-  if (bgColor.startsWith('#')) {
-    const r = parseInt(bgColor.slice(1, 3), 16);
-    const g = parseInt(bgColor.slice(3, 5), 16);
-    const b = parseInt(bgColor.slice(5, 7), 16);
-    bgRgba = `rgba(${r}, ${g}, ${b}, ${bgOpacity})`;
-  }
-  
-  subtitleDisplay.style.fontSize = fontSize;
-  subtitleDisplay.style.fontFamily = fontFamily;
-  subtitleDisplay.style.color = textColor;
-  subtitleDisplay.style.backgroundColor = bgRgba;
-}
-
-async function loadSubtitleByIndex(index) {
-  if (!availableSubtitles.length) return false;
-  
-  const subtitle = availableSubtitles[index];
-  if (!subtitle || !subtitle.url) return false;
-  
-  currentSubtitleUrl = subtitle.url;
+  currentSubtitleUrl = url;
   
   try {
     // Clear existing interval
@@ -567,11 +462,13 @@ async function loadSubtitleByIndex(index) {
     }
     
     // Load new SRT
-    currentSubtitleCues = await loadSRT(subtitle.url);
+    currentSubtitleCues = await loadSRT(url);
     
     if (currentSubtitleCues.length) {
       subtitleEnabled = true;
       document.getElementById('no-subs-badge').style.display = 'none';
+      document.getElementById('cc-button-text').textContent = 'CC On';
+      document.getElementById('cc-button').classList.add('active');
       
       // Start subtitle update interval
       subtitleInterval = setInterval(updateSubtitleDisplay, 100);
@@ -594,12 +491,16 @@ async function loadSubtitles(language = 'en') {
     
     if (!availableSubtitles.length) {
       noSubsBadge.style.display = 'block';
+      document.getElementById('cc-button-text').textContent = 'No Subs';
+      document.getElementById('cc-button').classList.remove('active');
       return false;
     }
     
-    const success = await loadSubtitleByIndex(0);
+    currentLanguage = language;
+    const success = await loadSubtitleByUrl(availableSubtitles[0].url);
     if (!success) {
       noSubsBadge.style.display = 'block';
+      document.getElementById('cc-button-text').textContent = 'Error';
       return false;
     }
     
@@ -612,48 +513,94 @@ async function loadSubtitles(language = 'en') {
   }
 }
 
-function toggleSubtitles() {
-  subtitleEnabled = !subtitleEnabled;
-  if (!subtitleEnabled) {
-    document.getElementById('subtitle-display').textContent = '';
-  } else {
-    updateSubtitleDisplay();
+function disableSubtitles() {
+  subtitleEnabled = false;
+  if (subtitleInterval) {
+    clearInterval(subtitleInterval);
+    subtitleInterval = null;
+  }
+  document.getElementById('subtitle-display').textContent = '';
+  document.getElementById('cc-button-text').textContent = 'CC Off';
+  document.getElementById('cc-button').classList.remove('active');
+  currentSubtitleCues = [];
+}
+
+function enableSubtitles() {
+  if (currentSubtitleCues.length) {
+    subtitleEnabled = true;
+    if (subtitleInterval) {
+      clearInterval(subtitleInterval);
+    }
+    subtitleInterval = setInterval(updateSubtitleDisplay, 100);
+    document.getElementById('cc-button-text').textContent = 'CC On';
+    document.getElementById('cc-button').classList.add('active');
   }
 }
 
-function applySubtitleStyles() {
-  applySubtitleStylesToElement();
-  updateSubtitleDisplay();
+function toggleSubtitles() {
+  if (!currentSubtitleCues.length && availableSubtitles.length === 0) {
+    // No subtitles loaded, try to load
+    loadSubtitles(currentLanguage);
+  } else if (subtitleEnabled) {
+    disableSubtitles();
+  } else {
+    enableSubtitles();
+  }
 }
 
-// ========== PLAYBACK SPEED ==========
-function setPlaybackSpeed(speed) {
-  if (!videoElement) return;
-  videoElement.playbackRate = speed;
-  document.getElementById('current-speed').textContent = speed + 'x';
+// ========== CC BUTTON AND MENU ==========
+function showLanguageMenu() {
+  const menu = document.getElementById('lang-menu');
+  const isVisible = menu.classList.contains('show');
+  
+  if (isVisible) {
+    menu.classList.remove('show');
+  } else {
+    // Populate language list
+    const langList = document.getElementById('lang-list');
+    const languages = [
+      { code: 'en', name: '🇬🇧 English' },
+      { code: 'es', name: '🇪🇸 Español' },
+      { code: 'fr', name: '🇫🇷 Français' },
+      { code: 'de', name: '🇩🇪 Deutsch' },
+      { code: 'it', name: '🇮🇹 Italiano' },
+      { code: 'pt', name: '🇵🇹 Português' },
+      { code: 'ru', name: '🇷🇺 Русский' },
+      { code: 'ja', name: '🇯🇵 日本語' },
+      { code: 'ko', name: '🇰🇷 한국어' },
+      { code: 'zh', name: '🇨🇳 中文' },
+      { code: 'ar', name: '🇸🇦 العربية' },
+      { code: 'hi', name: '🇮🇳 हिन्दी' }
+    ];
+    
+    langList.innerHTML = languages.map(lang => `
+      <button onclick="selectLanguage('${lang.code}')">
+        ${lang.name}
+      </button>
+    `).join('');
+    
+    menu.classList.add('show');
+  }
 }
 
-// ========== SETTINGS PANEL ==========
-function toggleSettingsPanel() {
-  const panel = document.getElementById('settings-panel');
-  panel.classList.toggle('show');
+async function selectLanguage(langCode) {
+  document.getElementById('lang-menu').classList.remove('show');
+  await loadSubtitles(langCode);
 }
 
-// Close panel when clicking outside
+// Close menu when clicking outside
 document.addEventListener('click', (e) => {
-  const panel = document.getElementById('settings-panel');
-  const video = document.getElementById('v');
-  if (panel && panel.classList.contains('show') && !panel.contains(e.target) && e.target !== video) {
-    panel.classList.remove('show');
+  const menu = document.getElementById('lang-menu');
+  const ccButton = document.getElementById('cc-button');
+  if (menu && menu.classList.contains('show') && !menu.contains(e.target) && e.target !== ccButton) {
+    menu.classList.remove('show');
   }
 });
 
 // ========== MESSAGES & UI HELPERS ==========
 const rotatingMessages = [
-  'Loading stream...', 'Contacting the mothership...', 'Bribing the servers...',
-  'Untangling the cables...', 'Asking nicely...', 'Decoding the matrix...',
-  'Warming up the hamsters...', 'Negotiating the cloud...', 'Almost there...',
-  'Fetching subtitles...', 'Summoning bandwidth...'
+  'Loading stream...', 'Contacting servers...', 'Almost there...',
+  'Fetching subtitles...', 'Starting playback...'
 ];
 
 let msgInterval;
@@ -754,41 +701,6 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
   }
 }
 
-// ========== LANGUAGE SELECTION ==========
-function showLanguageSelector() {
-  const langModal = document.getElementById('lang-modal');
-  const langList = document.getElementById('lang-list');
-  
-  const languages = [
-    { code: 'en', name: 'English' },
-    { code: 'es', name: 'Español' },
-    { code: 'fr', name: 'Français' },
-    { code: 'de', name: 'Deutsch' },
-    { code: 'it', name: 'Italiano' },
-    { code: 'pt', name: 'Português' },
-    { code: 'ru', name: 'Русский' },
-    { code: 'ja', name: '日本語' },
-    { code: 'ko', name: '한국어' },
-    { code: 'zh', name: '中文' },
-    { code: 'ar', name: 'العربية' },
-    { code: 'hi', name: 'हिन्दी' }
-  ];
-  
-  langList.innerHTML = languages.map(lang => `
-    <button style="width:100%;margin:5px 0;padding:10px;background:#2a2a35;border:none;border-radius:8px;color:white;cursor:pointer"
-            onclick="selectLanguage('${lang.code}')">
-      ${lang.name}
-    </button>
-  `).join('');
-  
-  langModal.style.display = 'flex';
-}
-
-async function selectLanguage(langCode) {
-  document.getElementById('lang-modal').style.display = 'none';
-  await loadSubtitles(langCode);
-}
-
 // ========== INITIALIZATION ==========
 const urlParams = new URLSearchParams(location.search);
 const id = urlParams.get('id');
@@ -817,90 +729,29 @@ if (!id) {
 }
 
 // ========== EVENT LISTENERS ==========
-// Settings panel buttons
-document.getElementById('subtitle-toggle')?.addEventListener('click', toggleSubtitles);
-document.getElementById('subtitle-language')?.addEventListener('click', showLanguageSelector);
-document.getElementById('subtitle-style-btn')?.addEventListener('click', () => {
-  document.getElementById('style-modal').style.display = 'flex';
-  document.getElementById('settings-panel').classList.remove('show');
-});
-document.getElementById('close-style-btn')?.addEventListener('click', () => {
-  document.getElementById('style-modal').style.display = 'none';
-  applySubtitleStyles();
+const ccButton = document.getElementById('cc-button');
+const disableSubtitleBtn = document.getElementById('disable-subtitle-btn');
+
+ccButton?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  showLanguageMenu();
 });
 
-// Speed buttons
-document.getElementById('speed-075')?.addEventListener('click', () => setPlaybackSpeed(0.75));
-document.getElementById('speed-1')?.addEventListener('click', () => setPlaybackSpeed(1));
-document.getElementById('speed-125')?.addEventListener('click', () => setPlaybackSpeed(1.25));
-document.getElementById('speed-15')?.addEventListener('click', () => setPlaybackSpeed(1.5));
-document.getElementById('speed-2')?.addEventListener('click', () => setPlaybackSpeed(2));
-
-// Style inputs
-document.getElementById('font-size')?.addEventListener('input', (e) => {
-  document.getElementById('font-size-val').innerText = e.target.value + 'px';
-  applySubtitleStyles();
-});
-document.getElementById('font-family')?.addEventListener('change', applySubtitleStyles);
-document.getElementById('text-color')?.addEventListener('input', applySubtitleStyles);
-document.getElementById('bg-color')?.addEventListener('input', applySubtitleStyles);
-document.getElementById('bg-opacity')?.addEventListener('input', (e) => {
-  document.getElementById('opacity-val').innerText = e.target.value;
-  applySubtitleStyles();
+disableSubtitleBtn?.addEventListener('click', () => {
+  document.getElementById('lang-menu').classList.remove('show');
+  disableSubtitles();
 });
 
-// Right-click context menu on video to show settings
-videoElement?.addEventListener('contextmenu', (e) => {
-  e.preventDefault();
-  toggleSettingsPanel();
-});
-
-// Also add a settings button in the corner
-const settingsBtn = document.createElement('button');
-settingsBtn.innerHTML = '⚙️';
-settingsBtn.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:50;background:rgba(0,0,0,0.7);border:none;color:white;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:20px;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.2)';
-settingsBtn.onclick = toggleSettingsPanel;
-document.body.appendChild(settingsBtn);
-
-// Load saved settings
-function loadSavedSettings() {
-  const saved = localStorage.getItem('subtitleSettings');
-  if (saved) {
-    try {
-      const settings = JSON.parse(saved);
-      if (document.getElementById('font-size')) document.getElementById('font-size').value = settings.fontSize || 22;
-      if (document.getElementById('font-family')) document.getElementById('font-family').value = settings.fontFamily || 'system-ui, sans-serif';
-      if (document.getElementById('text-color')) document.getElementById('text-color').value = settings.textColor || '#FFFFFF';
-      if (document.getElementById('bg-color')) document.getElementById('bg-color').value = settings.bgColor || '#000000';
-      if (document.getElementById('bg-opacity')) document.getElementById('bg-opacity').value = settings.bgOpacity || 0.75;
-      
-      document.getElementById('font-size-val').innerText = (settings.fontSize || 22) + 'px';
-      document.getElementById('opacity-val').innerText = settings.bgOpacity || 0.75;
-    } catch(e) {}
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+  if (subtitleInterval) {
+    clearInterval(subtitleInterval);
   }
-}
+});
 
-function saveSettings() {
-  const settings = {
-    fontSize: document.getElementById('font-size')?.value || 22,
-    fontFamily: document.getElementById('font-family')?.value || 'system-ui, sans-serif',
-    textColor: document.getElementById('text-color')?.value || '#FFFFFF',
-    bgColor: document.getElementById('bg-color')?.value || '#000000',
-    bgOpacity: document.getElementById('bg-opacity')?.value || 0.75
-  };
-  localStorage.setItem('subtitleSettings', JSON.stringify(settings));
-}
-
-document.getElementById('font-size')?.addEventListener('change', saveSettings);
-document.getElementById('font-family')?.addEventListener('change', saveSettings);
-document.getElementById('text-color')?.addEventListener('change', saveSettings);
-document.getElementById('bg-color')?.addEventListener('change', saveSettings);
-document.getElementById('bg-opacity')?.addEventListener('change', saveSettings);
-
-loadSavedSettings();
-
-// Expose functions globally for language selector
+// Make selectLanguage available globally
 window.selectLanguage = selectLanguage;
+window.disableSubtitles = disableSubtitles;
 </script>
 </body>
 </html>
