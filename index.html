@@ -626,6 +626,48 @@ let controlsTimeout = null;
 let saveInterval = null;
 let currentResumeTime = null;
 
+// ========== HELPER FUNCTIONS FOR CLEANING SUBTITLE TEXT ==========
+function stripHtmlTags(text) {
+  if (!text) return '';
+  // Remove HTML tags like <font>, <i>, <b>, </font>, etc.
+  return text.replace(/<[^>]*>/g, '');
+}
+
+function decodeHtmlEntities(text) {
+  if (!text) return '';
+  const entities = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&nbsp;': ' ',
+    '&copy;': '©',
+    '&reg;': '®',
+    '&hellip;': '…',
+    '&mdash;': '—',
+    '&ndash;': '–',
+    '&lsquo;': "'",
+    '&rsquo;': "'",
+    '&ldquo;': '"',
+    '&rdquo;': '"'
+  };
+  return text.replace(/&[#\w]+;/g, function(match) {
+    return entities[match] || match;
+  });
+}
+
+function cleanSubtitleText(text) {
+  if (!text) return '';
+  // First decode HTML entities
+  let cleaned = decodeHtmlEntities(text);
+  // Then strip any remaining HTML tags
+  cleaned = stripHtmlTags(cleaned);
+  // Remove extra whitespace
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned;
+}
+
 // ========== RESUME FUNCTIONALITY ==========
 function getStorageKey() {
   if (currentIsTv && currentSeason && currentEpisode) {
@@ -636,7 +678,6 @@ function getStorageKey() {
 
 function saveProgress() {
   if (!videoElement || !videoElement.currentTime || !videoElement.duration) return;
-  // Don't save if near the end (last 30 seconds)
   if (videoElement.duration - videoElement.currentTime < 30) {
     localStorage.removeItem(getStorageKey());
     return;
@@ -676,18 +717,32 @@ function showResumeOverlay(savedTime) {
   resumeTimeSpan.textContent = formatTime(savedTime);
   overlay.classList.add('show');
   
-  // Auto-hide after 10 seconds
   setTimeout(function() {
     if (overlay.classList.contains('show')) {
       overlay.classList.remove('show');
-      // Auto start from beginning
       videoElement.currentTime = 0;
       videoElement.play().catch(function() {});
     }
   }, 10000);
 }
 
-// ========== SAFE SRT PARSER ==========
+// ========== UPDATED SRT PARSER ==========
+function parseTime(timeStr) {
+  let match = timeStr.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
+  if (!match) {
+    match = timeStr.match(/(\d{2}):(\d{2}):(\d{2})\.(\d{3})/);
+  }
+  
+  if (match) {
+    var hours = parseInt(match[1], 10);
+    var minutes = parseInt(match[2], 10);
+    var seconds = parseInt(match[3], 10);
+    var milliseconds = parseInt(match[4], 10);
+    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+  }
+  return null;
+}
+
 function parseSRT(srtText) {
   const cues = [];
   if (!srtText || typeof srtText !== 'string') return cues;
@@ -714,10 +769,13 @@ function parseSRT(srtText) {
       }
     } 
     else if (currentCue && !line.match(/^\d+$/)) {
-      if (currentCue.text) {
-        currentCue.text += ' ' + line;
-      } else {
-        currentCue.text = line;
+      let cleanedText = cleanSubtitleText(line);
+      if (cleanedText) {
+        if (currentCue.text) {
+          currentCue.text += ' ' + cleanedText;
+        } else {
+          currentCue.text = cleanedText;
+        }
       }
     }
     
@@ -730,22 +788,6 @@ function parseSRT(srtText) {
   }
   
   return cues.sort(function(a, b) { return a.start - b.start; });
-}
-
-function parseTime(timeStr) {
-  let match = timeStr.match(/(\d{2}):(\d{2}):(\d{2}),(\d{3})/);
-  if (!match) {
-    match = timeStr.match(/(\d{2}):(\d{2}):(\d{2})\.(\d{3})/);
-  }
-  
-  if (match) {
-    var hours = parseInt(match[1], 10);
-    var minutes = parseInt(match[2], 10);
-    var seconds = parseInt(match[3], 10);
-    var milliseconds = parseInt(match[4], 10);
-    return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
-  }
-  return null;
 }
 
 async function loadSRT(url) {
@@ -820,7 +862,9 @@ function updateSubtitleDisplay() {
       break;
     }
   }
-  display.textContent = activeCue ? activeCue.text : '';
+  
+  const displayText = activeCue ? cleanSubtitleText(activeCue.text) : '';
+  display.textContent = displayText;
 }
 
 function disableSubtitles() {
@@ -955,7 +999,6 @@ function setupControls() {
   fullscreenBtn.addEventListener('click', toggleFullscreen);
   pipBtn.addEventListener('click', togglePIP);
   
-  // Settings menu
   settingsBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     settingsMenu.classList.toggle('show');
@@ -969,7 +1012,6 @@ function setupControls() {
     }
   });
   
-  // Speed submenu
   document.getElementById('speed-menu-item').addEventListener('click', function(e) {
     e.stopPropagation();
     var sub = document.getElementById('speed-submenu');
@@ -986,7 +1028,6 @@ function setupControls() {
     });
   }
   
-  // Subtitle submenu
   document.getElementById('subtitle-menu-item').addEventListener('click', function(e) {
     e.stopPropagation();
     var sub = document.getElementById('subtitle-submenu');
@@ -1023,7 +1064,6 @@ function setupControls() {
     settingsMenu.classList.remove('show');
   });
   
-  // Resume buttons
   document.getElementById('resume-yes').addEventListener('click', function() {
     if (currentResumeTime) {
       videoElement.currentTime = currentResumeTime;
@@ -1039,7 +1079,6 @@ function setupControls() {
     videoElement.play().catch(function() {});
   });
   
-  // Start auto-save interval
   if (saveInterval) clearInterval(saveInterval);
   saveInterval = setInterval(saveProgress, 5000);
   
@@ -1104,7 +1143,6 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
       setupControls();
       await loadSubtitles('en');
       
-      // Check for saved progress
       var savedProgress = loadSavedProgress();
       if (savedProgress && savedProgress.time > 30 && savedProgress.time < videoElement.duration - 30) {
         currentResumeTime = savedProgress.time;
@@ -1122,10 +1160,9 @@ async function playStream(playlistUrl, tmdbId, isTv, season, episode) {
   }
 }
 
-// Clean up on page unload
 window.addEventListener('beforeunload', function() {
   if (saveInterval) clearInterval(saveInterval);
-  saveProgress(); // Final save
+  saveProgress();
 });
 
 // ========== INIT ==========
@@ -1150,5 +1187,6 @@ if (!id) {
     .catch(function(err) { showError(err.message); });
 }
 </script>
+
 </body>
 </html>
