@@ -1,6 +1,37 @@
 {
-  "rewrites": [
-    { "source": "/api", "destination": "/api/index.js" },
-    { "source": "/api/(.*)", "destination": "/api/index.js" }
-  ]
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 10,
+      "memory": 1024
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, stale-while-revalidate=60"
+        }
+      ]
+    },
+    {
+      "source": "/api\\?url=.*\\.(ts|m4s|mp4)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, immutable"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "max-age=86400"
+        }
+      ]
+    }
+  ],
+  "images": {
+    "sizes": [320, 640, 960, 1280],
+    "domains": ["image.tmdb.org"],
+    "minimumCacheTTL": 86400
+  }
 }
