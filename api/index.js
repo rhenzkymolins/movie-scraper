@@ -4,22 +4,27 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const zlib = require('zlib');
 
 const REFERER = 'https://vidlink.pro/';
 const ORIGIN  = 'https://vidlink.pro';
 const UA      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124';
 
-// Cache control - aggressive caching for static-like responses
+// Cache control headers
 const CACHE_CONTROL = {
-  // Short cache for API responses (they change infrequently)
   API: 'public, max-age=300, stale-while-revalidate=60',
-  // Long cache for HLS segments (they're static)
   SEGMENT: 'public, max-age=86400, stale-while-revalidate=86400',
-  // No cache for errors
   ERROR: 'no-store, no-cache, must-revalidate'
 };
 
-// ── WASM singleton (survives warm invocations) ────────────────────────────────
+// Compression settings
+const COMPRESSION = {
+  BROTLI_QUALITY: 6,  // Balanced (1-11, 11 is best but slowest)
+  GZIP_LEVEL: 6,      // Balanced (1-9)
+  MIN_SIZE: 1024      // Don't compress smaller than 1KB
+};
+
+// ── WASM singleton ────────────────────────────────────────────────
 let wasmReady = false;
 let bootPromise = null;
 
@@ -48,7 +53,7 @@ function bootWasm() {
   return bootPromise;
 }
 
-// ── Stream URL resolver ───────────────────────────────────────────────────────
+// ── Stream URL resolver ───────────────────────────────────────────
 async function getStream(id, season, episode) {
   await bootWasm();
   const token = globalThis.getAdv(String(id));
@@ -68,7 +73,7 @@ async function getStream(id, season, episode) {
   return playlist;
 }
 
-// ── HLS upstream fetcher with redirect support and streaming ─────────────────
+// ── HLS upstream fetcher with redirect support ───────────────────
 function fetchUpstream(url, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 5) return reject(new Error('too many redirects'));
@@ -78,10 +83,8 @@ function fetchUpstream(url, redirects = 0) {
         Origin: ORIGIN, 
         'User-Agent': UA, 
         Accept: '*/*',
-        // Request compression if supported
-        'Accept-Encoding': 'gzip, deflate'
+        'Accept-Encoding': 'gzip, deflate, br'
       },
-      // Timeout to prevent hanging connections
       timeout: 30000
     }, res => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -105,24 +108,115 @@ function rewriteM3u8(body, url) {
   }).join('\n');
 }
 
-// Cache key generator for segment URLs
-function getCacheKey(url) {
-  // Simple hash for caching decisions
-  let hash = 0;
-  for (let i = 0; i < url.length; i++) {
-    const char = url.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+// ── Brotli/Gzip Compression Helpers ───────────────────────────────
+function shouldCompress(req, contentType, size) {
+  // Don't compress video segments
+  if (contentType && (
+    contentType.includes('video') ||
+    contentType.includes('mp2t') ||
+    contentType.includes('mpegurl')
+  )) {
+    return false;
   }
-  return Math.abs(hash).toString(16);
+  
+  // Don't compress small responses
+  if (size < COMPRESSION.MIN_SIZE) {
+    return false;
+  }
+  
+  // Check if client accepts compression
+  const acceptEncoding = req.headers['accept-encoding'];
+  if (!acceptEncoding) {
+    return false;
+  }
+  
+  return true;
 }
 
-// ── Vercel serverless handler ─────────────────────────────────────────────────
+function compressWithBrotli(data, quality = COMPRESSION.BROTLI_QUALITY) {
+  return new Promise((resolve, reject) => {
+    const params = {
+      [zlib.constants.BROTLI_PARAM_QUALITY]: quality,
+      [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+      [zlib.constants.BROTLI_PARAM_SIZE_HINT]: data.length
+    };
+    
+    zlib.brotliCompress(data, { params }, (err, compressed) => {
+      if (err) {
+        console.error('Brotli compression error:', err);
+        reject(err);
+      } else {
+        resolve(compressed);
+      }
+    });
+  });
+}
+
+function compressWithGzip(data, level = COMPRESSION.GZIP_LEVEL) {
+  return new Promise((resolve, reject) => {
+    zlib.gzip(data, { level }, (err, compressed) => {
+      if (err) {
+        console.error('Gzip compression error:', err);
+        reject(err);
+      } else {
+        resolve(compressed);
+      }
+    });
+  });
+}
+
+async function compressResponse(req, res, data, contentType) {
+  const size = Buffer.byteLength(data);
+  
+  if (!shouldCompress(req, contentType, size)) {
+    res.setHeader('Content-Length', size);
+    return data;
+  }
+  
+  const acceptEncoding = req.headers['accept-encoding'];
+  
+  // Prefer Brotli (modern browsers support it)
+  if (acceptEncoding.includes('br')) {
+    try {
+      const compressed = await compressWithBrotli(data);
+      const ratio = ((1 - compressed.length / size) * 100).toFixed(1);
+      console.log(`[Brotli] Compressed ${size} -> ${compressed.length} bytes (${ratio}% saved)`);
+      
+      res.setHeader('Content-Encoding', 'br');
+      res.setHeader('Content-Length', compressed.length);
+      return compressed;
+    } catch (err) {
+      console.error('Brotli failed, falling back to gzip:', err);
+    }
+  }
+  
+  // Fallback to Gzip
+  if (acceptEncoding.includes('gzip')) {
+    try {
+      const compressed = await compressWithGzip(data);
+      const ratio = ((1 - compressed.length / size) * 100).toFixed(1);
+      console.log(`[Gzip] Compressed ${size} -> ${compressed.length} bytes (${ratio}% saved)`);
+      
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Content-Length', compressed.length);
+      return compressed;
+    } catch (err) {
+      console.error('Gzip compression failed:', err);
+    }
+  }
+  
+  // No compression
+  res.setHeader('Content-Length', size);
+  return data;
+}
+
+// ── Vercel serverless handler ─────────────────────────────────────
 module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept-Encoding');
+  res.setHeader('Vary', 'Accept-Encoding'); // Important for CDN caching
   
   // Handle preflight
   if (req.method === 'OPTIONS') {
@@ -143,17 +237,13 @@ module.exports = async function handler(req, res) {
       const upstream = await fetchUpstream(url);
       const ct = (upstream.headers['content-type'] || '').toLowerCase();
       
-      // For HLS segments, use long cache
+      // Set cache headers
       if (isSegment) {
         res.setHeader('Cache-Control', CACHE_CONTROL.SEGMENT);
         res.setHeader('CDN-Cache-Control', 'max-age=86400');
-        res.setHeader('Vercel-CDN-Cache-Control', 'max-age=86400');
-      } 
-      // For playlists, use shorter cache but still cache
-      else if (isM3u8) {
+      } else if (isM3u8) {
         res.setHeader('Cache-Control', CACHE_CONTROL.API);
         res.setHeader('CDN-Cache-Control', 'max-age=300');
-        res.setHeader('Vercel-CDN-Cache-Control', 'max-age=300');
       }
       
       const finalIsM3u8 = isM3u8 || ct.includes('mpegurl') || ct.includes('m3u8');
@@ -161,28 +251,21 @@ module.exports = async function handler(req, res) {
       if (finalIsM3u8) {
         const chunks = [];
         for await (const chunk of upstream) chunks.push(chunk);
-        const body = Buffer.concat(chunks).toString('utf8');
-        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        return res.end(rewriteM3u8(body, url));
-      } else {
-        // For segments, stream directly without buffering when possible
-        res.setHeader('Content-Type', ct || 'application/octet-stream');
+        let body = Buffer.concat(chunks).toString('utf8');
+        body = rewriteM3u8(body, url);
         
-        // Set content length if available
+        // Compress m3u8 response with Brotli
+        const compressedBody = await compressResponse(req, res, body, 'application/vnd.apple.mpegurl');
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.end(compressedBody);
+      } else {
+        // For segments, stream directly without compression
+        res.setHeader('Content-Type', ct || 'application/octet-stream');
         if (upstream.headers['content-length']) {
           res.setHeader('Content-Length', upstream.headers['content-length']);
         }
-        
         res.statusCode = upstream.statusCode;
-        
-        // Pipe with error handling
         upstream.pipe(res);
-        upstream.on('error', (err) => {
-          if (!res.headersSent) {
-            res.statusCode = 502;
-            res.end(err.message);
-          }
-        });
       }
     } catch (err) {
       res.setHeader('Cache-Control', CACHE_CONTROL.ERROR);
@@ -197,7 +280,9 @@ module.exports = async function handler(req, res) {
     res.setHeader('Cache-Control', CACHE_CONTROL.ERROR);
     res.statusCode = 400;
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ error: 'missing id' }));
+    const errorResponse = JSON.stringify({ error: 'missing id' });
+    const compressedError = await compressResponse(req, res, errorResponse, 'application/json');
+    return res.end(compressedError);
   }
 
   // Cache API responses
@@ -206,11 +291,16 @@ module.exports = async function handler(req, res) {
   
   try {
     const url = await getStream(q.id, q.s, q.e);
-    // Return minimal response
-    res.end(JSON.stringify({ url }));
+    const responseData = JSON.stringify({ url });
+    
+    // Compress the API response with Brotli
+    const compressedData = await compressResponse(req, res, responseData, 'application/json');
+    res.end(compressedData);
   } catch (err) {
     res.setHeader('Cache-Control', CACHE_CONTROL.ERROR);
     res.statusCode = 500;
-    res.end(JSON.stringify({ error: err.message }));
+    const errorResponse = JSON.stringify({ error: err.message });
+    const compressedError = await compressResponse(req, res, errorResponse, 'application/json');
+    res.end(compressedError);
   }
 };
